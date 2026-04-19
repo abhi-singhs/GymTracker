@@ -8,6 +8,8 @@ import '@fontsource/newsreader/700.css'
 import './index.css'
 import App from './App.tsx'
 
+const serviceWorkerUrl = `${import.meta.env.BASE_URL}sw.js`
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
@@ -19,7 +21,7 @@ createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
     window.addEventListener('load', () => {
-      void navigator.serviceWorker.register('/sw.js')
+      void navigator.serviceWorker.register(serviceWorkerUrl, { scope: import.meta.env.BASE_URL })
     })
   } else {
     void navigator.serviceWorker.getRegistrations().then((registrations) => {

@@ -31,6 +31,17 @@ npm run lint
 npm run test
 ```
 
+## GitHub Pages deployment
+
+GymTracker includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml` that builds and publishes the app to GitHub Pages on every push to `main`, and also supports manual runs from the Actions tab.
+
+1. In GitHub, open **Settings** -> **Pages**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Push to `main` or trigger **Deploy to GitHub Pages** manually.
+4. The site will publish at `https://<owner>.github.io/<repo>/`.
+
+The Vite base path is derived automatically during GitHub Actions builds so project Pages deployments load assets, the manifest, and the service worker from the correct repository subpath.
+
 ## GitHub sync setup
 
 GymTracker sync is intentionally simple: it writes a JSON file to a private repository that **you own**.

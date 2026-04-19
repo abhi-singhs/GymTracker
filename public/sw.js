@@ -1,5 +1,12 @@
-const CACHE_NAME = 'gymtracker-shell-v1'
-const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/favicon.svg', '/icon.svg', '/icon-maskable.svg']
+const CACHE_NAME = 'gymtracker-shell-v2'
+const APP_SHELL_PATH = new URL(self.registration.scope).pathname
+const SHELL_ASSETS = [
+  APP_SHELL_PATH,
+  `${APP_SHELL_PATH}manifest.webmanifest`,
+  `${APP_SHELL_PATH}favicon.svg`,
+  `${APP_SHELL_PATH}icon.svg`,
+  `${APP_SHELL_PATH}icon-maskable.svg`,
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -36,11 +43,11 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const cloned = response.clone()
-          void caches.open(CACHE_NAME).then((cache) => cache.put('/', cloned))
+          void caches.open(CACHE_NAME).then((cache) => cache.put(APP_SHELL_PATH, cloned))
           return response
         })
         .catch(async () => {
-          const cached = await caches.match('/')
+          const cached = await caches.match(APP_SHELL_PATH)
           return cached ?? Response.error()
         }),
     )
