@@ -1,0 +1,25 @@
+{
+  "name": "GymTracker",
+  "short_name": "GymTracker",
+  "description": "A private training journal for workouts, goals, and rule-based weekly plans.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4e7d8",
+  "theme_color": "#b85d2d",
+  "orientation": "portrait-primary",
+  "categories": ["health", "fitness", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
