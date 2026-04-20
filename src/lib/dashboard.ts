@@ -1,4 +1,4 @@
-import type { Goal, LoggedExercise, WorkoutSession } from './types'
+import type { Goal, WorkoutSession } from './types'
 import { clampPercentage, getWeekStart } from './utils'
 
 export function formatVolume(value: number) {
@@ -7,31 +7,60 @@ export function formatVolume(value: number) {
   }).format(value)
 }
 
-export function goalProgress(goal: Goal) {
+export function resolveGoalCurrentValue(goal: Goal, latestWeightKg: number | null = null) {
+  if (goal.type === 'weight' && latestWeightKg !== null) {
+    return latestWeightKg
+  }
+
+  return goal.currentValue
+}
+
+export function goalProgress(goal: Goal, latestWeightKg: number | null = null) {
+  const currentValue = resolveGoalCurrentValue(goal, latestWeightKg)
+
   if (goal.targetValue <= 0) {
     return 0
   }
 
-  return clampPercentage((goal.currentValue / goal.targetValue) * 100)
+  if (goal.type === 'weight') {
+    if (currentValue <= 0) {
+      return 0
+    }
+
+    const smaller = Math.min(currentValue, goal.targetValue)
+    const larger = Math.max(currentValue, goal.targetValue)
+    return clampPercentage((smaller / larger) * 100)
+  }
+
+  return clampPercentage((currentValue / goal.targetValue) * 100)
 }
 
 export function getBestLift(workouts: WorkoutSession[]) {
-  const champion = workouts.flatMap((workout) => workout.exercises).reduce<LoggedExercise | null>(
-    (current, exercise) => {
-      if (!current || exercise.loadKg > current.loadKg) {
-        return exercise
-      }
+  const champion = workouts
+    .flatMap((workout) =>
+      workout.exercises.flatMap((exercise) =>
+        exercise.sets.map((set) => ({
+          exerciseName: exercise.name,
+          loadKg: set.loadKg,
+        })),
+      ),
+    )
+    .reduce<{ exerciseName: string; loadKg: number } | null>(
+      (current, exercise) => {
+        if (!current || exercise.loadKg > current.loadKg) {
+          return exercise
+        }
 
-      return current
-    },
-    null,
-  )
+        return current
+      },
+      null,
+    )
 
   if (!champion || champion.loadKg <= 0) {
     return 'No weighted lift logged yet'
   }
 
-  return `${champion.name} · ${champion.loadKg} kg`
+  return `${champion.exerciseName} · ${champion.loadKg} kg`
 }
 
 export function getConsistencyStreak(workouts: WorkoutSession[], trainingDays: string[]) {

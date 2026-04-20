@@ -2,8 +2,8 @@ import type { Dispatch, SetStateAction } from 'react'
 import { GOAL_TYPE_OPTIONS } from '../../lib/defaults'
 import type { Goal, GoalType } from '../../lib/types'
 import { formatDisplayDate, titleCase } from '../../lib/utils'
-import { goalProgress } from '../../lib/dashboard'
-import { parseNumber, type GoalDraft } from '../../lib/app-drafts'
+import { goalProgress, resolveGoalCurrentValue } from '../../lib/dashboard'
+import { getDefaultGoalUnit, parseNumber, type GoalDraft } from '../../lib/app-drafts'
 import { SectionHeader } from '../SectionHeader'
 
 type UpdateGoal = (goalId: string, updater: (goal: Goal) => Goal) => void
@@ -13,6 +13,7 @@ interface GoalsPageProps {
   completedGoals: number
   goalDraft: GoalDraft
   goalFormError: string | null
+  latestWeightKg: number | null
   setGoalDraft: Dispatch<SetStateAction<GoalDraft>>
   addGoal: () => void
   updateGoal: UpdateGoal
@@ -24,6 +25,7 @@ export function GoalsPage({
   completedGoals,
   goalDraft,
   goalFormError,
+  latestWeightKg,
   setGoalDraft,
   addGoal,
   updateGoal,
@@ -50,64 +52,85 @@ export function GoalsPage({
         <div className="goal-stack">
           {activeGoals.map((goal) => (
             <article key={goal.id} className="goal-item">
-              <div className="goal-topline">
-                <div>
-                  <p className="eyebrow">{titleCase(goal.type)}</p>
-                  <h3>{goal.title}</h3>
-                </div>
-                <button className="text-button" type="button" onClick={() => deleteGoal(goal.id)}>
-                  Remove
-                </button>
-              </div>
+              {(() => {
+                const currentValue = resolveGoalCurrentValue(goal, latestWeightKg)
+                const readsFromWeightLog = goal.type === 'weight' && latestWeightKg !== null
 
-              <div className="progress-bar" aria-hidden="true">
-                <span style={{ width: `${goalProgress(goal)}%` }} />
-              </div>
+                return (
+                  <>
+                    <div className="goal-topline">
+                      <div>
+                        <p className="eyebrow">{titleCase(goal.type)}</p>
+                        <h3>{goal.title}</h3>
+                      </div>
+                      <button className="text-button" type="button" onClick={() => deleteGoal(goal.id)}>
+                        Remove
+                      </button>
+                    </div>
 
-              <div className="goal-metrics">
-                <label className="field compact">
-                  <span>Current</span>
-                  <input
-                    type="number"
-                    value={goal.currentValue}
-                    onChange={(event) =>
-                      updateGoal(goal.id, (current) => ({
-                        ...current,
-                        currentValue: parseNumber(event.target.value, current.currentValue),
-                      }))
-                    }
-                  />
-                </label>
+                    <div className="progress-bar" aria-hidden="true">
+                      <span style={{ width: `${goalProgress(goal, latestWeightKg)}%` }} />
+                    </div>
 
-                <div className="goal-target">
-                  <span>Target</span>
-                  <strong>
-                    {goal.targetValue} {goal.unit}
-                  </strong>
-                </div>
+                    <div className="goal-metrics">
+                      {readsFromWeightLog ? (
+                        <div className="goal-target">
+                          <span>Latest logged</span>
+                          <strong>
+                            {currentValue} {goal.unit}
+                          </strong>
+                        </div>
+                      ) : (
+                        <label className="field compact">
+                          <span>Current</span>
+                          <input
+                            type="number"
+                            value={goal.currentValue}
+                            onChange={(event) =>
+                              updateGoal(goal.id, (current) => ({
+                                ...current,
+                                currentValue: parseNumber(event.target.value, current.currentValue),
+                              }))
+                            }
+                          />
+                        </label>
+                      )}
 
-                <div className="goal-target">
-                  <span>Deadline</span>
-                  <strong>{goal.deadline ? formatDisplayDate(goal.deadline) : 'Flexible'}</strong>
-                </div>
-              </div>
+                      <div className="goal-target">
+                        <span>Target</span>
+                        <strong>
+                          {goal.targetValue} {goal.unit}
+                        </strong>
+                      </div>
 
-              {goal.notes ? <p className="goal-notes">{goal.notes}</p> : null}
+                      <div className="goal-target">
+                        <span>Deadline</span>
+                        <strong>{goal.deadline ? formatDisplayDate(goal.deadline) : 'Flexible'}</strong>
+                      </div>
+                    </div>
 
-              <div className="goal-actions">
-                <button
-                  className="button subtle"
-                  type="button"
-                  onClick={() =>
-                    updateGoal(goal.id, (current) => ({
-                      ...current,
-                      status: 'completed',
-                    }))
-                  }
-                >
-                  Mark complete
-                </button>
-              </div>
+                    {goal.notes ? <p className="goal-notes">{goal.notes}</p> : null}
+                    {readsFromWeightLog ? (
+                      <p className="goal-notes">Current weight is being read from the History page log.</p>
+                    ) : null}
+
+                    <div className="goal-actions">
+                      <button
+                        className="button subtle"
+                        type="button"
+                        onClick={() =>
+                          updateGoal(goal.id, (current) => ({
+                            ...current,
+                            status: 'completed',
+                          }))
+                        }
+                      >
+                        Mark complete
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
             </article>
           ))}
         </div>
@@ -131,10 +154,16 @@ export function GoalsPage({
           <select
             value={goalDraft.type}
             onChange={(event) =>
-              setGoalDraft((current) => ({
-                ...current,
-                type: event.target.value as GoalType,
-              }))
+              setGoalDraft((current) => {
+                const nextType = event.target.value as GoalType
+
+                return {
+                  ...current,
+                  type: nextType,
+                  unit: getDefaultGoalUnit(nextType),
+                  currentValue: nextType === 'weight' && latestWeightKg !== null ? latestWeightKg : current.currentValue,
+                }
+              })
             }
           >
             {GOAL_TYPE_OPTIONS.map((option) => (
@@ -170,7 +199,7 @@ export function GoalsPage({
         </label>
 
         <label className="field">
-          <span>Current value</span>
+          <span>{goalDraft.type === 'weight' ? 'Starting weight' : 'Current value'}</span>
           <input
             type="number"
             value={goalDraft.currentValue}
@@ -199,7 +228,11 @@ export function GoalsPage({
           rows={3}
           value={goalDraft.notes}
           onChange={(event) => setGoalDraft((current) => ({ ...current, notes: event.target.value }))}
-          placeholder="Why it matters, what success feels like, or any practical limits."
+          placeholder={
+            goalDraft.type === 'weight'
+              ? 'Why this weight target matters and any guardrails you want to remember.'
+              : 'Why it matters, what success feels like, or any practical limits.'
+          }
         />
       </label>
 

@@ -83,7 +83,9 @@ export function isInCurrentWeek(value: string, reference = new Date()) {
 
 export function workoutVolume(workout: WorkoutSession) {
   return workout.exercises.reduce(
-    (total, exercise) => total + exercise.sets * exercise.reps * exercise.loadKg,
+    (total, exercise) =>
+      total +
+      exercise.sets.reduce((exerciseTotal, set) => exerciseTotal + set.reps * set.loadKg, 0),
     0,
   )
 }

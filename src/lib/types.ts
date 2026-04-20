@@ -1,4 +1,4 @@
-export const APP_VERSION = 2
+export const APP_VERSION = 4
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
@@ -6,7 +6,7 @@ export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced'
 
 export type PrimaryGoal = 'strength' | 'body-composition' | 'endurance' | 'consistency'
 
-export type GoalType = PrimaryGoal | 'habit'
+export type GoalType = PrimaryGoal | 'habit' | 'weight'
 
 export type EquipmentAccess =
   | 'full-gym'
@@ -26,12 +26,15 @@ export type WorkoutFocus =
   | 'conditioning'
   | 'recovery'
 
+export type LoggedSetKind = 'working' | 'warmup' | 'drop' | 'failure'
+
 export interface Profile {
   name: string
   fitnessLevel: FitnessLevel
   primaryGoal: PrimaryGoal
   trainingDays: string[]
   sessionMinutes: number
+  heightCm: number
   equipmentAccess: EquipmentAccess
   recoveryPriority: RecoveryPriority
   constraints: string
@@ -50,13 +53,19 @@ export interface Goal {
   createdAt: string
 }
 
+export interface LoggedSet {
+  id: string
+  kind: LoggedSetKind
+  reps: number
+  loadKg: number
+  completed: boolean
+}
+
 export interface LoggedExercise {
   id: string
   name: string
-  sets: number
-  reps: number
-  loadKg: number
   notes: string
+  sets: LoggedSet[]
 }
 
 export interface WorkoutSession {
@@ -68,6 +77,13 @@ export interface WorkoutSession {
   energy: 1 | 2 | 3 | 4 | 5
   notes: string
   exercises: LoggedExercise[]
+}
+
+export interface WeightEntry {
+  id: string
+  recordedOn: string
+  weightKg: number
+  notes: string
 }
 
 export interface PlanExercise {
@@ -104,6 +120,7 @@ export interface RemoteSnapshot {
   profile: Profile
   goals: Goal[]
   workouts: WorkoutSession[]
+  weightEntries: WeightEntry[]
   activePlan: WorkoutPlan
 }
 
@@ -139,6 +156,7 @@ export interface PersistedAppState {
   profile: Profile
   goals: Goal[]
   workouts: WorkoutSession[]
+  weightEntries: WeightEntry[]
   activePlan: WorkoutPlan
   sync: SyncSettings
   metadata: AppMetadata

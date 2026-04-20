@@ -202,6 +202,20 @@ function ProfileSettings({
           </label>
 
           <label className="field">
+            <span>Height (cm)</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={profile.heightCm}
+              onChange={(event) =>
+                updateProfileField('heightCm', parseNumber(event.target.value, profile.heightCm))
+              }
+            />
+            <span className="field-note">Used only for BMI in the History page.</span>
+          </label>
+
+          <label className="field">
             <span>Recovery bias</span>
             <select
               value={profile.recoveryPriority}
@@ -293,7 +307,7 @@ function SyncSettingsPanel({
       <div className="settings-block-header">
         <p className="eyebrow">Private sync</p>
         <h3>Back up the journal to your own Google Sheet</h3>
-        <p>Paste a Google Sheets URL, log in with Google, then push or pull when you want the remote copy to match this device.</p>
+        <p>Paste a Google Sheets URL, log in with Google, then push or pull when you want readable backup tables for goals, workouts, plans, and bodyweight history to match this device.</p>
       </div>
 
       <div className="sync-layout">
@@ -315,7 +329,7 @@ function SyncSettingsPanel({
               />
               <span className="field-note">
                 Paste the URL of the spreadsheet GymTracker should use. Sync data is stored in the{' '}
-                <strong>{sync.sheetName}</strong> tab inside that spreadsheet.
+                <strong>{sync.sheetName}</strong> tab set inside that spreadsheet, with separate readable tables for goals, workouts, workout sets, weight logs, and plan data.
               </span>
             </label>
           </div>
@@ -533,7 +547,7 @@ function DeviceSettings({ updatedAt, syncReady, resetLocalData }: DeviceSettings
       <details className="danger-panel">
         <summary>Reset local journal</summary>
         <p>
-          Erase the device copy and rebuild the starter state. Your Google Sheets snapshot is left
+          Erase the device copy and rebuild the starter state. Your Google Sheets backup tables are left
           untouched until you decide to sync again.
         </p>
         <button className="button subtle" type="button" onClick={() => void resetLocalData()}>

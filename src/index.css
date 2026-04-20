@@ -21,6 +21,10 @@
   --warning-soft: oklch(92% 0.045 78);
   --error: oklch(58% 0.17 28);
   --error-soft: oklch(91% 0.04 27);
+  --tracker-accent: oklch(61% 0.11 247);
+  --tracker-accent-soft: oklch(93% 0.018 247);
+  --tracker-complete: oklch(58% 0.13 153);
+  --tracker-complete-soft: oklch(90% 0.036 153);
   --shadow-soft: 0 26px 54px -34px oklch(30% 0.03 38 / 0.28);
 
   font-family: var(--font-body);
@@ -54,6 +58,10 @@
   --warning-soft: oklch(32% 0.04 78);
   --error: oklch(73% 0.13 30);
   --error-soft: oklch(31% 0.04 28);
+  --tracker-accent: oklch(76% 0.07 247);
+  --tracker-accent-soft: oklch(31% 0.024 247);
+  --tracker-complete: oklch(72% 0.11 150);
+  --tracker-complete-soft: oklch(30% 0.03 150);
   --shadow-soft: none;
 }
 
@@ -617,7 +625,13 @@ h3 {
 .button:focus,
 .day-toggle:focus,
 .section-nav a:focus,
-.text-button:focus {
+.text-button:focus,
+.tracker-chip-button:focus,
+.tracker-inline-button:focus,
+.tracker-set-kind:focus,
+.tracker-set-check:focus,
+.tracker-add-set:focus,
+.tracker-exercise-name:focus {
   outline: 3px solid color-mix(in oklch, var(--accent) 45%, transparent);
   outline-offset: 2px;
 }
@@ -750,6 +764,644 @@ h3 {
   display: grid;
   gap: 0.8rem;
   margin-bottom: 1rem;
+}
+
+.workout-tracker-surface {
+  --tracker-set-grid:
+    minmax(2.75rem, 3rem)
+    minmax(7rem, 1.65fr)
+    minmax(4.6rem, 0.85fr)
+    minmax(4.6rem, 0.85fr)
+    3rem;
+}
+
+.tracker-session-shell,
+.tracker-session-card,
+.tracker-session-grid,
+.tracker-summary-ribbon,
+.tracker-exercise-stack,
+.tracker-history-grid,
+.tracker-history-exercises {
+  display: grid;
+  gap: 1rem;
+}
+
+.tracker-session-shell,
+.tracker-history-grid,
+.tracker-history-header {
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.tracker-session-card,
+.tracker-exercise-card,
+.tracker-history-card {
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.6rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--surface) 96%, transparent),
+    color-mix(in oklch, var(--surface-strong) 18%, var(--surface))
+  );
+}
+
+.tracker-title-field {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tracker-title-field input {
+  width: 100%;
+  min-height: 4.25rem;
+  border: 1px solid color-mix(in oklch, var(--tracker-accent) 22%, var(--line));
+  border-radius: 1.45rem;
+  background: linear-gradient(180deg, var(--surface), color-mix(in oklch, var(--tracker-accent-soft) 60%, var(--surface)));
+  color: var(--text-1);
+  padding: 0.95rem 1.1rem;
+  font-size: clamp(1.85rem, 4vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.tracker-helper {
+  margin: 0.3rem 0 0;
+  color: var(--text-3);
+  font-size: 0.92rem;
+}
+
+.tracker-energy-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.35rem;
+  background: color-mix(in oklch, var(--surface-strong) 38%, var(--surface));
+}
+
+.tracker-energy-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.tracker-energy-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  min-height: 3rem;
+  font-weight: 700;
+}
+
+.tracker-energy-button.is-selected {
+  border-color: color-mix(in oklch, var(--tracker-accent) 55%, var(--line));
+  background: linear-gradient(180deg, var(--tracker-accent), color-mix(in oklch, var(--tracker-accent) 82%, black 8%));
+  color: oklch(97% 0.01 255);
+}
+
+.tracker-summary-ribbon {
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+}
+
+.tracker-summary-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1.3rem;
+  border: 1px solid color-mix(in oklch, var(--line) 86%, transparent);
+  background: color-mix(in oklch, var(--surface-strong) 34%, var(--surface));
+}
+
+.tracker-summary-card.accent {
+  background: linear-gradient(140deg, var(--tracker-accent-soft), color-mix(in oklch, var(--surface) 65%, var(--tracker-accent-soft)));
+}
+
+.tracker-summary-card span {
+  color: var(--text-3);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tracker-summary-card strong {
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  letter-spacing: -0.04em;
+}
+
+.tracker-summary-card p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.tracker-exercise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.tracker-exercise-heading {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.tracker-exercise-index {
+  color: var(--text-3);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tracker-exercise-name {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--tracker-accent);
+  font-size: clamp(1.85rem, 4.6vw, 3rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.tracker-exercise-name::placeholder {
+  color: color-mix(in oklch, var(--tracker-accent) 62%, var(--text-3));
+}
+
+.tracker-exercise-context {
+  margin: 0.2rem 0 0;
+  color: var(--text-2);
+  font-size: 0.96rem;
+}
+
+.tracker-exercise-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.tracker-chip-button,
+.tracker-inline-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface-strong) 40%, var(--surface));
+  color: var(--text-1);
+  min-height: 2.7rem;
+  padding: 0.65rem 0.95rem;
+  font-weight: 600;
+}
+
+.tracker-chip-button.danger {
+  color: color-mix(in oklch, var(--error) 75%, var(--text-1));
+  background: color-mix(in oklch, var(--error-soft) 42%, var(--surface));
+  border-color: color-mix(in oklch, var(--error) 24%, var(--line));
+}
+
+.tracker-exercise-note textarea,
+.tracker-session-notes textarea {
+  min-height: 6.25rem;
+}
+
+.tracker-table {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.tracker-table-head,
+.tracker-set-row {
+  display: grid;
+  grid-template-columns: var(--tracker-set-grid);
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.tracker-table-head {
+  padding-inline: 0.2rem;
+}
+
+.tracker-table-head span {
+  color: var(--text-3);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tracker-table-head span:last-child {
+  text-align: center;
+}
+
+.tracker-set-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tracker-set-row {
+  padding: 0.45rem;
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in oklch, var(--line) 88%, transparent);
+  background: color-mix(in oklch, var(--surface-strong) 26%, var(--surface));
+}
+
+.tracker-set-row.is-completed {
+  border-color: color-mix(in oklch, var(--tracker-complete) 32%, var(--line));
+  background: linear-gradient(180deg, var(--tracker-complete-soft), color-mix(in oklch, var(--surface) 68%, var(--tracker-complete-soft)));
+}
+
+.tracker-set-kind,
+.tracker-set-check {
+  min-height: 3rem;
+  border: 0;
+  border-radius: 1rem;
+  font-weight: 700;
+}
+
+.tracker-set-kind {
+  background: var(--text-1);
+  color: var(--surface);
+}
+
+.tracker-set-kind.is-warmup {
+  background: color-mix(in oklch, var(--warning-soft) 88%, var(--surface));
+  color: color-mix(in oklch, var(--warning) 78%, var(--text-1));
+}
+
+.tracker-set-kind.is-drop {
+  background: oklch(92% 0.03 315);
+  color: oklch(56% 0.21 312);
+}
+
+:root[data-theme='dark'] .tracker-set-kind.is-drop {
+  background: oklch(33% 0.03 315);
+  color: oklch(77% 0.14 312);
+}
+
+.tracker-set-kind.is-failure {
+  background: color-mix(in oklch, var(--error-soft) 88%, var(--surface));
+  color: color-mix(in oklch, var(--error) 78%, var(--text-1));
+}
+
+.tracker-set-previous {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.tracker-set-previous span,
+.tracker-history-highlight {
+  font-weight: 700;
+}
+
+.tracker-set-previous span {
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracker-set-previous small {
+  color: var(--text-3);
+  font-size: 0.73rem;
+}
+
+.tracker-set-input {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid color-mix(in oklch, var(--line) 88%, transparent);
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--text-1);
+  padding: 0 0.55rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.tracker-set-input[type='number'] {
+  appearance: textfield;
+}
+
+.tracker-set-input::-webkit-outer-spin-button,
+.tracker-set-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.tracker-set-check {
+  background: color-mix(in oklch, var(--surface-strong) 45%, var(--surface));
+  color: var(--text-3);
+  font-size: 1.3rem;
+}
+
+.tracker-set-check.is-completed {
+  background: linear-gradient(180deg, var(--tracker-complete), color-mix(in oklch, var(--tracker-complete) 86%, black 10%));
+  color: oklch(96% 0.01 150);
+}
+
+.tracker-exercise-footer,
+.tracker-exercise-footer-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tracker-inline-button {
+  justify-self: start;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.tracker-inline-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.tracker-add-set {
+  width: 100%;
+  min-height: 3.6rem;
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  background: color-mix(in oklch, var(--surface-strong) 42%, var(--surface));
+  color: var(--text-1);
+  font-size: clamp(1.1rem, 2vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.tracker-bottom-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.tracker-history-header {
+  margin-bottom: 1rem;
+}
+
+.tracker-history-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tracker-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.tracker-history-meta span {
+  padding: 0.48rem 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface-strong) 42%, var(--surface));
+  color: var(--text-2);
+  font-size: 0.84rem;
+}
+
+.tracker-history-exercises {
+  margin-top: 0.9rem;
+}
+
+.tracker-history-exercise {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in oklch, var(--line) 80%, transparent);
+}
+
+.tracker-history-exercise strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.tracker-history-exercise span {
+  color: var(--text-2);
+}
+
+.tracker-history-highlight {
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--tracker-accent-soft) 72%, var(--surface));
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
+.history-grid,
+.history-column,
+.history-metric-grid,
+.history-list,
+.focus-breakdown {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.history-panel,
+.history-metric-card {
+  padding: 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 1.55rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--surface) 96%, transparent),
+    color-mix(in oklch, var(--surface-strong) 16%, var(--surface))
+  );
+  min-width: 0;
+}
+
+.history-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.history-panel-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.9rem;
+}
+
+.history-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.history-metric-card {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.history-metric-card.accent {
+  background: linear-gradient(140deg, var(--accent-soft), color-mix(in oklch, var(--surface) 65%, var(--accent-soft)));
+}
+
+.history-metric-card span,
+.chart-foot span,
+.bar-chart-item span {
+  color: var(--text-3);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.history-metric-card strong {
+  font-size: clamp(1.35rem, 2vw, 1.95rem);
+  letter-spacing: -0.04em;
+}
+
+.history-metric-card p,
+.history-list-item span,
+.history-list-item p,
+.focus-breakdown-copy span,
+.chart-empty {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.chart-shell {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 14rem;
+  overflow: visible;
+}
+
+.chart-grid {
+  stroke: color-mix(in oklch, var(--line) 84%, transparent);
+  stroke-width: 1;
+  fill: none;
+}
+
+.chart-grid.faint {
+  stroke-opacity: 0.5;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-dot {
+  fill: var(--accent);
+}
+
+.chart-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-foot strong,
+.bar-chart-item strong,
+.focus-breakdown-copy strong,
+.history-list-item strong {
+  display: block;
+  margin-top: 0.12rem;
+  letter-spacing: -0.03em;
+}
+
+.chart-empty {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border-radius: 1.25rem;
+  border: 1px dashed var(--line);
+  background: color-mix(in oklch, var(--surface-strong) 28%, var(--surface));
+}
+
+.bar-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(3rem, 1fr));
+  gap: 0.7rem;
+  align-items: end;
+  min-height: 16rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.bar-chart-item {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  text-align: center;
+  min-width: 0;
+}
+
+.bar-chart-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  min-height: 10rem;
+  padding: 0.45rem;
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--surface-strong) 32%, var(--surface));
+}
+
+.bar-chart-bar {
+  width: 100%;
+  min-height: 0.5rem;
+  border-radius: 0.8rem;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+.focus-breakdown-item {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.focus-breakdown-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.focus-breakdown-track {
+  height: 0.8rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--surface-strong) 36%, var(--surface));
+}
+
+.focus-breakdown-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+}
+
+.history-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding-top: 0.95rem;
+  border-top: 1px solid color-mix(in oklch, var(--line) 82%, transparent);
+}
+
+.history-list-item:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .exercise-row,
@@ -1017,6 +1669,19 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .tracker-session-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tracker-summary-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tracker-exercise-footer-actions {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
   .goal-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1029,6 +1694,11 @@ h3 {
 
   .sync-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .history-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
 }
 
@@ -1130,6 +1800,63 @@ h3 {
 
   .section-surface {
     padding: 1.15rem;
+  }
+
+  .workout-tracker-surface {
+    --tracker-set-grid:
+      minmax(2.5rem, 2.7rem)
+      minmax(5.5rem, 1.25fr)
+      minmax(4rem, 0.78fr)
+      minmax(4rem, 0.78fr)
+      2.8rem;
+  }
+
+  .tracker-title-field input {
+    min-height: 3.9rem;
+    font-size: clamp(1.55rem, 7vw, 2.35rem);
+  }
+
+  .history-panel,
+  .history-metric-card {
+    padding: 1rem;
+  }
+
+  .chart-svg {
+    height: 11.75rem;
+  }
+
+  .bar-chart {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(3.4rem, 1fr);
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: thin;
+  }
+
+  .history-panel-actions .button {
+    width: 100%;
+  }
+
+  .history-list-item,
+  .focus-breakdown-copy,
+  .chart-foot {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tracker-history-exercise {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tracker-exercise-actions,
+  .tracker-bottom-bar {
+    width: 100%;
+  }
+
+  .tracker-chip-button,
+  .tracker-bottom-bar .button {
+    flex: 1 1 calc(50% - 0.375rem);
   }
 
   .plan-day {

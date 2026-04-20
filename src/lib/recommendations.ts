@@ -44,11 +44,18 @@ export function getPlanFingerprint(profile: Profile, goals: Goal[]) {
       type: goal.type,
       unit: goal.unit,
       targetValue: goal.targetValue,
-      currentValue: goal.currentValue,
     }))
 
   return snapshotFingerprint({
-    profile,
+    profile: {
+      fitnessLevel: profile.fitnessLevel,
+      primaryGoal: profile.primaryGoal,
+      trainingDays: profile.trainingDays,
+      sessionMinutes: profile.sessionMinutes,
+      equipmentAccess: profile.equipmentAccess,
+      recoveryPriority: profile.recoveryPriority,
+      constraints: profile.constraints,
+    },
     activeGoals,
   })
 }

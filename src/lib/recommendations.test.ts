@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from './defaults'
-import { generateWorkoutPlan, inferWorkoutFocus } from './recommendations'
+import { generateWorkoutPlan, getPlanFingerprint, inferWorkoutFocus } from './recommendations'
 import { createRemoteSnapshot, remoteSnapshotFingerprint } from './storage'
 
 describe('generateWorkoutPlan', () => {
@@ -40,18 +40,23 @@ describe('inferWorkoutFocus', () => {
       {
         id: '1',
         name: 'Bench press',
-        sets: 4,
-        reps: 6,
-        loadKg: 70,
         notes: '',
+        sets: [
+          { id: '1a', kind: 'working', reps: 6, loadKg: 70, completed: true },
+          { id: '1b', kind: 'working', reps: 6, loadKg: 70, completed: true },
+          { id: '1c', kind: 'working', reps: 6, loadKg: 70, completed: true },
+          { id: '1d', kind: 'working', reps: 6, loadKg: 70, completed: true },
+        ],
       },
       {
         id: '2',
         name: 'Cable fly',
-        sets: 3,
-        reps: 12,
-        loadKg: 20,
         notes: '',
+        sets: [
+          { id: '2a', kind: 'working', reps: 12, loadKg: 20, completed: true },
+          { id: '2b', kind: 'working', reps: 12, loadKg: 20, completed: true },
+          { id: '2c', kind: 'working', reps: 12, loadKg: 20, completed: true },
+        ],
       },
     ])
 
@@ -69,5 +74,51 @@ describe('remoteSnapshotFingerprint', () => {
     }
 
     expect(remoteSnapshotFingerprint(first)).toBe(remoteSnapshotFingerprint(second))
+  })
+})
+
+describe('getPlanFingerprint', () => {
+  it('ignores profile height and goal progress-only updates', () => {
+    const state = createInitialState()
+    const fingerprint = getPlanFingerprint(
+      state.profile,
+      [
+        {
+          id: 'goal-1',
+          title: 'Reach 80 kg',
+          type: 'weight',
+          targetValue: 80,
+          currentValue: 84,
+          unit: 'kg',
+          deadline: '',
+          notes: '',
+          status: 'active',
+          createdAt: '2026-04-01T00:00:00.000Z',
+        },
+      ],
+    )
+
+    const nextFingerprint = getPlanFingerprint(
+      {
+        ...state.profile,
+        heightCm: 182,
+      },
+      [
+        {
+          id: 'goal-1',
+          title: 'Reach 80 kg',
+          type: 'weight',
+          targetValue: 80,
+          currentValue: 82.5,
+          unit: 'kg',
+          deadline: '',
+          notes: '',
+          status: 'active',
+          createdAt: '2026-04-01T00:00:00.000Z',
+        },
+      ],
+    )
+
+    expect(nextFingerprint).toBe(fingerprint)
   })
 })

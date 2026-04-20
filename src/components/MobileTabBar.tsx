@@ -8,7 +8,11 @@ interface MobileTabBarProps {
 
 export function MobileTabBar({ tabs, currentTabId }: MobileTabBarProps) {
   return (
-    <nav className="mobile-tabbar" aria-label="Page navigation">
+    <nav
+      className="mobile-tabbar"
+      aria-label="Page navigation"
+      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+    >
       {tabs.map((tab) => (
         <NavLink
           key={tab.id}

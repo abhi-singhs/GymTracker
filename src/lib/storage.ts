@@ -4,17 +4,21 @@ import { buildGoogleSheetUrl, parseGoogleSheetUrl } from './googleSheetsSetup'
 import { generateWorkoutPlan, getPlanFingerprint } from './recommendations'
 import type {
   Goal,
+  LoggedExercise,
+  LoggedSet,
+  LoggedSetKind,
   PersistedAppState,
   Profile,
   RemoteSnapshot,
   SyncConflict,
   SyncSettings,
   ThemePreference,
+  WeightEntry,
   WorkoutPlan,
   WorkoutSession,
 } from './types'
 import { APP_VERSION } from './types'
-import { snapshotFingerprint } from './utils'
+import { createId, snapshotFingerprint } from './utils'
 
 const DB_NAME = 'gymtracker-db'
 const STORE_NAME = 'gymtracker-store'
@@ -50,6 +54,7 @@ function asProfile(record: unknown, fallback: Profile): Profile {
   return {
     ...fallback,
     ...record,
+    heightCm: asFiniteNumber(record.heightCm, fallback.heightCm),
     trainingDays: Array.isArray(record.trainingDays)
       ? record.trainingDays.filter((day): day is string => typeof day === 'string')
       : fallback.trainingDays,
@@ -64,14 +69,109 @@ function asGoals(record: unknown): Goal[] {
   return record.filter((entry): entry is Goal => isRecord(entry) && typeof entry.id === 'string') as Goal[]
 }
 
+function asFiniteNumber(value: unknown, fallback = 0) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function asWeightEntries(record: unknown): WeightEntry[] {
+  if (!Array.isArray(record)) {
+    return []
+  }
+
+  return record
+    .filter((entry): entry is UnknownRecord => isRecord(entry) && typeof entry.id === 'string')
+    .map((entry) => ({
+      id: entry.id as string,
+      recordedOn: typeof entry.recordedOn === 'string' ? entry.recordedOn : seedDate(),
+      weightKg: Math.max(0, asFiniteNumber(entry.weightKg)),
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+    }))
+}
+
+function asSetKind(value: unknown): LoggedSetKind {
+  return value === 'warmup' || value === 'drop' || value === 'failure' ? value : 'working'
+}
+
+function asLoggedSet(record: unknown): LoggedSet | null {
+  if (!isRecord(record)) {
+    return null
+  }
+
+  return {
+    id: typeof record.id === 'string' && record.id.trim() ? record.id : createId(),
+    kind: asSetKind(record.kind),
+    reps: Math.max(0, asFiniteNumber(record.reps)),
+    loadKg: Math.max(0, asFiniteNumber(record.loadKg)),
+    completed: record.completed === true,
+  }
+}
+
+function asExerciseSets(record: UnknownRecord) {
+  if (Array.isArray(record.sets)) {
+    return record.sets.map(asLoggedSet).filter((set): set is LoggedSet => set !== null)
+  }
+
+  const legacySetCount = Math.max(1, Math.round(asFiniteNumber(record.sets, 1)))
+  const legacyReps = Math.max(0, asFiniteNumber(record.reps))
+  const legacyLoadKg = Math.max(0, asFiniteNumber(record.loadKg))
+
+  return Array.from({ length: legacySetCount }, () => ({
+    id: createId(),
+    kind: 'working' as const,
+    reps: legacyReps,
+    loadKg: legacyLoadKg,
+    completed: false,
+  }))
+}
+
+function asExercises(record: unknown): LoggedExercise[] {
+  if (!Array.isArray(record)) {
+    return []
+  }
+
+  return record
+    .filter((entry): entry is UnknownRecord => isRecord(entry) && typeof entry.id === 'string')
+    .map((entry) => ({
+      id: entry.id as string,
+      name: typeof entry.name === 'string' ? entry.name : '',
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+      sets: asExerciseSets(entry),
+    }))
+}
+
 function asWorkouts(record: unknown): WorkoutSession[] {
   if (!Array.isArray(record)) {
     return []
   }
 
-  return record.filter(
-    (entry): entry is WorkoutSession => isRecord(entry) && typeof entry.id === 'string',
-  ) as WorkoutSession[]
+  return record
+    .filter((entry): entry is UnknownRecord => isRecord(entry) && typeof entry.id === 'string')
+    .map((entry) => ({
+      id: entry.id as string,
+      title: typeof entry.title === 'string' ? entry.title : '',
+      focus:
+        entry.focus === 'upper' ||
+        entry.focus === 'lower' ||
+        entry.focus === 'push' ||
+        entry.focus === 'pull' ||
+        entry.focus === 'legs' ||
+        entry.focus === 'conditioning' ||
+        entry.focus === 'recovery'
+          ? entry.focus
+          : 'full-body',
+      completedOn: typeof entry.completedOn === 'string' ? entry.completedOn : seedDate(),
+      durationMinutes: Math.max(0, asFiniteNumber(entry.durationMinutes, 60)),
+      energy:
+        entry.energy === 1 || entry.energy === 2 || entry.energy === 3 || entry.energy === 4 || entry.energy === 5
+          ? entry.energy
+          : 3,
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+      exercises: asExercises(entry.exercises),
+    }))
+}
+
+function seedDate() {
+  return new Date().toISOString().slice(0, 10)
 }
 
 function asPlan(record: unknown, profile: Profile, goals: Goal[]): WorkoutPlan {
@@ -100,6 +200,7 @@ interface NormalizedSnapshotPayload {
   profile: Profile
   goals: Goal[]
   workouts: WorkoutSession[]
+  weightEntries: WeightEntry[]
   activePlan: WorkoutPlan
 }
 
@@ -110,6 +211,7 @@ function normalizeSnapshotPayload(
   const profile = asProfile(record.profile, seed.profile)
   const goals = asGoals(record.goals)
   const workouts = asWorkouts(record.workouts)
+  const weightEntries = asWeightEntries(record.weightEntries)
   const activePlan = asPlan(record.activePlan, profile, goals)
 
   return {
@@ -120,6 +222,7 @@ function normalizeSnapshotPayload(
     profile,
     goals,
     workouts,
+    weightEntries,
     activePlan,
   }
 }
@@ -146,6 +249,7 @@ function asConflict(record: unknown, seed: PersistedAppState): SyncConflict | nu
       profile: remote.profile,
       goals: remote.goals,
       workouts: remote.workouts,
+      weightEntries: remote.weightEntries,
       activePlan: remote.activePlan,
     },
   }
@@ -239,6 +343,7 @@ export function createRemoteSnapshot(state: PersistedAppState): RemoteSnapshot {
     profile: state.profile,
     goals: state.goals,
     workouts: state.workouts,
+    weightEntries: state.weightEntries,
     activePlan: state.activePlan,
   }
 }
@@ -250,6 +355,7 @@ export function remoteSnapshotFingerprint(snapshot: RemoteSnapshot) {
     profile: snapshot.profile,
     goals: snapshot.goals,
     workouts: snapshot.workouts,
+    weightEntries: snapshot.weightEntries,
     activePlan: snapshot.activePlan,
   })
 }
@@ -260,13 +366,14 @@ export function applyRemoteSnapshot(
 ) {
   const merged = migratePersistedState({
     ...currentState,
-    version: snapshot.version,
-    themePreference: snapshot.themePreference,
-    profile: snapshot.profile,
-    goals: snapshot.goals,
-    workouts: snapshot.workouts,
-    activePlan: snapshot.activePlan,
-  })
+      version: snapshot.version,
+      themePreference: snapshot.themePreference,
+      profile: snapshot.profile,
+      goals: snapshot.goals,
+      workouts: snapshot.workouts,
+      weightEntries: snapshot.weightEntries,
+      activePlan: snapshot.activePlan,
+    })
   const now = new Date().toISOString()
 
   return {

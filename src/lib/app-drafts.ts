@@ -1,4 +1,11 @@
-import type { GoalType, LoggedExercise, WorkoutFocus } from './types'
+import type {
+  GoalType,
+  LoggedExercise,
+  LoggedSet,
+  LoggedSetKind,
+  WeightEntry,
+  WorkoutFocus,
+} from './types'
 import { createId, isoDate } from './utils'
 
 export type GoalDraft = {
@@ -21,15 +28,38 @@ export type WorkoutDraft = {
   exercises: LoggedExercise[]
 }
 
+export type WeightDraft = {
+  recordedOn: string
+  weightKg: number
+  notes: string
+}
+
+export const WORKOUT_SET_KIND_ORDER: LoggedSetKind[] = ['working', 'warmup', 'drop', 'failure']
+
+export function getDefaultGoalUnit(type: GoalType) {
+  return type === 'weight' ? 'kg' : 'sessions / week'
+}
+
 export function createGoalDraft(): GoalDraft {
   return {
     title: '',
     type: 'strength',
     targetValue: 4,
     currentValue: 0,
-    unit: 'sessions / week',
+    unit: getDefaultGoalUnit('strength'),
     deadline: '',
     notes: '',
+  }
+}
+
+export function createExerciseSetDraft(overrides: Partial<LoggedSet> = {}): LoggedSet {
+  return {
+    id: createId(),
+    kind: 'working',
+    reps: 0,
+    loadKg: 0,
+    completed: false,
+    ...overrides,
   }
 }
 
@@ -37,10 +67,8 @@ export function createExerciseDraft(): LoggedExercise {
   return {
     id: createId(),
     name: '',
-    sets: 3,
-    reps: 8,
-    loadKg: 0,
     notes: '',
+    sets: [createExerciseSetDraft()],
   }
 }
 
@@ -56,7 +84,29 @@ export function createWorkoutDraft(): WorkoutDraft {
   }
 }
 
+export function createWeightDraft(): WeightDraft {
+  return {
+    recordedOn: isoDate(),
+    weightKg: 0,
+    notes: '',
+  }
+}
+
+export function createWeightEntryDraft(weightDraft: WeightDraft): WeightEntry {
+  return {
+    id: createId(),
+    recordedOn: weightDraft.recordedOn,
+    weightKg: weightDraft.weightKg,
+    notes: weightDraft.notes.trim(),
+  }
+}
+
 export function parseNumber(value: string, fallback: number) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+export function getNextWorkoutSetKind(kind: LoggedSetKind) {
+  const index = WORKOUT_SET_KIND_ORDER.indexOf(kind)
+  return WORKOUT_SET_KIND_ORDER[(index + 1) % WORKOUT_SET_KIND_ORDER.length]
 }

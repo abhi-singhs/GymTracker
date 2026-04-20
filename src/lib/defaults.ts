@@ -18,6 +18,7 @@ const DEFAULT_PROFILE = {
   primaryGoal: 'strength' as PrimaryGoal,
   trainingDays: ['Mon', 'Wed', 'Fri', 'Sat'],
   sessionMinutes: 60,
+  heightCm: 0,
   equipmentAccess: 'full-gym' as EquipmentAccess,
   recoveryPriority: 'balanced' as RecoveryPriority,
   constraints: '',
@@ -47,6 +48,7 @@ export const GOAL_TYPE_OPTIONS: Array<{ value: GoalType; label: string }> = [
   { value: 'body-composition', label: 'Body composition' },
   { value: 'endurance', label: 'Endurance' },
   { value: 'consistency', label: 'Consistency' },
+  { value: 'weight', label: 'Weight' },
   { value: 'habit', label: 'Habit' },
 ]
 
@@ -85,6 +87,7 @@ export function createInitialState(): PersistedAppState {
     profile: DEFAULT_PROFILE,
     goals: [],
     workouts: [],
+    weightEntries: [],
     activePlan: generateWorkoutPlan(DEFAULT_PROFILE, []),
     sync: {
       spreadsheetUrl: '',

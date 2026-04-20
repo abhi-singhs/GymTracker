@@ -6,6 +6,7 @@ import { MobileTabBar } from './components/MobileTabBar'
 import { SectionNavigation } from './components/SectionNavigation'
 import { ShellMessage } from './components/ShellMessage'
 import { GoalsPage } from './components/pages/GoalsPage'
+import { HistoryPage } from './components/pages/HistoryPage'
 import { OverviewPage } from './components/pages/OverviewPage'
 import { PlanPage } from './components/pages/PlanPage'
 import { SettingsPage } from './components/pages/SettingsPage'
@@ -13,7 +14,16 @@ import { WorkoutsPage } from './components/pages/WorkoutsPage'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 import { usePersistedAppState } from './hooks/usePersistedAppState'
 import { usePrefersDark } from './hooks/usePrefersDark'
-import { createExerciseDraft, createGoalDraft, createWorkoutDraft } from './lib/app-drafts'
+import {
+  createExerciseDraft,
+  createExerciseSetDraft,
+  createWeightDraft,
+  createWeightEntryDraft,
+  createGoalDraft,
+  createWorkoutDraft,
+  getDefaultGoalUnit,
+  getNextWorkoutSetKind,
+} from './lib/app-drafts'
 import { NAV_TABS } from './lib/app-navigation'
 import {
   getBestLift,
@@ -52,6 +62,7 @@ import {
 import type {
   Goal,
   LoggedExercise,
+  LoggedSet,
   PersistedAppState,
   PlanDay,
   PlanExercise,
@@ -72,8 +83,10 @@ function App() {
   const location = useLocation()
   const [goalDraft, setGoalDraft] = useState(createGoalDraft)
   const [workoutDraft, setWorkoutDraft] = useState(createWorkoutDraft)
+  const [weightDraft, setWeightDraft] = useState(createWeightDraft)
   const [goalFormError, setGoalFormError] = useState<string | null>(null)
   const [workoutFormError, setWorkoutFormError] = useState<string | null>(null)
+  const [weightFormError, setWeightFormError] = useState<string | null>(null)
   const [syncMode, setSyncMode] = useState<SyncMode>(null)
   const [syncNotice, setSyncNotice] = useState<SyncNoticeState | null>(null)
   const online = useOnlineStatus()
@@ -176,6 +189,16 @@ function App() {
     [sortedWorkouts],
   )
 
+  const sortedWeightEntries = useMemo(
+    () =>
+      state
+        ? [...state.weightEntries].sort((left, right) => right.recordedOn.localeCompare(left.recordedOn))
+        : [],
+    [state],
+  )
+
+  const latestWeightKg = sortedWeightEntries[0]?.weightKg ?? null
+
   const weeklyVolume = useMemo(
     () =>
       sortedWorkouts
@@ -199,8 +222,11 @@ function App() {
       return 0
     }
 
-    return activeGoals.reduce((total, goal) => total + goalProgress(goal), 0) / activeGoals.length
-  }, [activeGoals])
+    return (
+      activeGoals.reduce((total, goal) => total + goalProgress(goal, latestWeightKg), 0) /
+      activeGoals.length
+    )
+  }, [activeGoals, latestWeightKg])
 
   const consistencyStreak = useMemo(
     () => (state ? getConsistencyStreak(sortedWorkouts, state.profile.trainingDays) : 0),
@@ -255,8 +281,10 @@ function App() {
     await resetLocalData()
     setGoalDraft(createGoalDraft())
     setWorkoutDraft(createWorkoutDraft())
+    setWeightDraft(createWeightDraft())
     setGoalFormError(null)
     setWorkoutFormError(null)
+    setWeightFormError(null)
     showSyncNotice('Local data reset. You are back to a fresh starter setup.')
   }, [resetLocalData, showSyncNotice])
 
@@ -332,8 +360,11 @@ function App() {
           title: goalDraft.title.trim(),
           type: goalDraft.type,
           targetValue: goalDraft.targetValue,
-          currentValue: goalDraft.currentValue,
-          unit: goalDraft.unit.trim() || 'units',
+          currentValue:
+            goalDraft.type === 'weight' && latestWeightKg !== null
+              ? latestWeightKg
+              : goalDraft.currentValue,
+          unit: goalDraft.unit.trim() || getDefaultGoalUnit(goalDraft.type),
           deadline: goalDraft.deadline,
           notes: goalDraft.notes.trim(),
           status: 'active',
@@ -344,7 +375,7 @@ function App() {
     }))
     setGoalDraft(createGoalDraft())
     setGoalFormError(null)
-  }, [goalDraft, updateState])
+  }, [goalDraft, latestWeightKg, updateState])
 
   const updateGoal = useCallback(
     (goalId: string, updater: (goal: Goal) => Goal) => {
@@ -374,7 +405,7 @@ function App() {
   }, [])
 
   const updateWorkoutExercise = useCallback(
-    <Field extends keyof LoggedExercise>(
+    <Field extends Exclude<keyof LoggedExercise, 'sets'>>(
       exerciseId: string,
       field: Field,
       value: LoggedExercise[Field],
@@ -394,6 +425,120 @@ function App() {
     [],
   )
 
+  const addWorkoutSet = useCallback((exerciseId: string) => {
+    setWorkoutDraft((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) => {
+        if (exercise.id !== exerciseId) {
+          return exercise
+        }
+
+        const lastSet = exercise.sets.at(-1)
+
+        return {
+          ...exercise,
+          sets: [
+            ...exercise.sets,
+            createExerciseSetDraft(
+              lastSet
+                ? {
+                    kind: lastSet.kind,
+                    reps: lastSet.reps,
+                    loadKg: lastSet.loadKg,
+                  }
+                : undefined,
+            ),
+          ],
+        }
+      }),
+    }))
+  }, [])
+
+  const updateWorkoutSet = useCallback(
+    <Field extends Exclude<keyof LoggedSet, 'id' | 'kind'>>(
+      exerciseId: string,
+      setId: string,
+      field: Field,
+      value: LoggedSet[Field],
+    ) => {
+      setWorkoutDraft((current) => ({
+        ...current,
+        exercises: current.exercises.map((exercise) =>
+          exercise.id === exerciseId
+            ? {
+                ...exercise,
+                sets: exercise.sets.map((set) =>
+                  set.id === setId
+                    ? {
+                        ...set,
+                        [field]: value,
+                      }
+                    : set,
+                ),
+              }
+            : exercise,
+        ),
+      }))
+    },
+    [],
+  )
+
+  const cycleWorkoutSetKind = useCallback((exerciseId: string, setId: string) => {
+    setWorkoutDraft((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: exercise.sets.map((set) =>
+                set.id === setId
+                  ? {
+                      ...set,
+                      kind: getNextWorkoutSetKind(set.kind),
+                    }
+                  : set,
+              ),
+            }
+          : exercise,
+      ),
+    }))
+  }, [])
+
+  const toggleWorkoutSetCompletion = useCallback((exerciseId: string, setId: string) => {
+    setWorkoutDraft((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: exercise.sets.map((set) =>
+                set.id === setId
+                  ? {
+                      ...set,
+                      completed: !set.completed,
+                    }
+                  : set,
+              ),
+            }
+          : exercise,
+      ),
+    }))
+  }, [])
+
+  const removeWorkoutSet = useCallback((exerciseId: string) => {
+    setWorkoutDraft((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: exercise.sets.length === 1 ? exercise.sets : exercise.sets.slice(0, -1),
+            }
+          : exercise,
+      ),
+    }))
+  }, [])
+
   const removeWorkoutExercise = useCallback((exerciseId: string) => {
     setWorkoutDraft((current) => ({
       ...current,
@@ -405,20 +550,34 @@ function App() {
   }, [])
 
   const logWorkout = useCallback(() => {
-    const namedExercises = workoutDraft.exercises.filter((exercise) => exercise.name.trim())
+    const namedExercises = workoutDraft.exercises
+      .map((exercise) => ({
+        ...exercise,
+        name: exercise.name.trim(),
+        notes: exercise.notes.trim(),
+        sets: exercise.sets
+          .map((set) => ({
+            ...set,
+            reps: Math.max(0, set.reps),
+            loadKg: Math.max(0, set.loadKg),
+          }))
+          .filter((set) => set.reps > 0 || set.loadKg > 0),
+      }))
+      .filter((exercise) => exercise.name)
 
     if (!workoutDraft.title.trim()) {
       setWorkoutFormError('Give this session a short title.')
       return
     }
 
-    if (namedExercises.length === 0) {
-      setWorkoutFormError('Add at least one exercise before logging the workout.')
+    if (namedExercises.length === 0 || namedExercises.every((exercise) => exercise.sets.length === 0)) {
+      setWorkoutFormError('Add at least one exercise with a filled set before logging the workout.')
       return
     }
 
+    const loggedExercises = namedExercises.filter((exercise) => exercise.sets.length > 0)
     const focus =
-      workoutDraft.focus === 'full-body' ? inferWorkoutFocus(namedExercises) : workoutDraft.focus
+      workoutDraft.focus === 'full-body' ? inferWorkoutFocus(loggedExercises) : workoutDraft.focus
 
     updateState((current) => ({
       ...current,
@@ -431,10 +590,7 @@ function App() {
           durationMinutes: workoutDraft.durationMinutes,
           energy: workoutDraft.energy,
           notes: workoutDraft.notes.trim(),
-          exercises: namedExercises.map((exercise) => ({
-            ...exercise,
-            name: exercise.name.trim(),
-          })),
+          exercises: loggedExercises,
         },
         ...current.workouts,
       ],
@@ -449,6 +605,59 @@ function App() {
         ...current,
         workouts: current.workouts.filter((workout) => workout.id !== workoutId),
       }))
+    },
+    [updateState],
+  )
+
+  const logWeightEntry = useCallback(() => {
+    if (weightDraft.weightKg <= 0) {
+      setWeightFormError('Log a bodyweight above zero.')
+      return
+    }
+
+    const nextEntry = createWeightEntryDraft(weightDraft)
+
+    updateState((current) => {
+      const nextWeightEntries = [nextEntry, ...current.weightEntries]
+
+      return {
+        ...current,
+        goals: current.goals.map((goal) =>
+          goal.type === 'weight'
+            ? {
+                ...goal,
+                currentValue: nextEntry.weightKg,
+              }
+            : goal,
+        ),
+        weightEntries: nextWeightEntries,
+      }
+    })
+    setWeightDraft(createWeightDraft())
+    setWeightFormError(null)
+  }, [updateState, weightDraft])
+
+  const deleteWeightEntry = useCallback(
+    (weightEntryId: string) => {
+      updateState((current) => {
+        const nextWeightEntries = current.weightEntries.filter((entry) => entry.id !== weightEntryId)
+        const nextLatestWeight = [...nextWeightEntries].sort((left, right) =>
+          right.recordedOn.localeCompare(left.recordedOn),
+        )[0]
+
+        return {
+          ...current,
+          goals: current.goals.map((goal) =>
+            goal.type === 'weight' && nextLatestWeight
+              ? {
+                  ...goal,
+                  currentValue: nextLatestWeight.weightKg,
+                }
+              : goal,
+          ),
+          weightEntries: nextWeightEntries,
+        }
+      })
     },
     [updateState],
   )
@@ -796,7 +1005,7 @@ function App() {
         if (remote.snapshot && remoteChanged && !localChanged && !forceLocal) {
           setState((snapshot) => (snapshot ? applyRemoteSnapshot(snapshot, remote.snapshot!) : snapshot))
           showSyncNotice(
-            'Google Sheets already had the newer snapshot, so local data was updated from remote.',
+            'Google Sheets already had newer backup tables, so local data was updated from remote.',
           )
           return
         }
@@ -826,7 +1035,7 @@ function App() {
           return
         }
 
-        await pushRemoteSnapshot(current.sync, localSnapshot, remote.chunkCount)
+        await pushRemoteSnapshot(current.sync, localSnapshot)
 
         setState((snapshot) => {
           if (!snapshot) {
@@ -847,8 +1056,8 @@ function App() {
         })
         showSyncNotice(
           remote.snapshot
-            ? 'Local snapshot pushed to Google Sheets.'
-            : 'First Google Sheets snapshot created.',
+            ? 'Local data pushed to Google Sheets as readable tables.'
+            : 'First Google Sheets backup tables created.',
         )
       } catch (error: unknown) {
         const message = syncErrorMessage(error)
@@ -902,7 +1111,7 @@ function App() {
       const remote = await fetchRemoteSnapshot(current.sync)
 
       if (!remote.snapshot) {
-        showSyncNotice('No Google Sheets snapshot exists yet. Push your local data first.')
+        showSyncNotice('No Google Sheets backup exists yet. Push your local data first.')
         return
       }
 
@@ -941,7 +1150,7 @@ function App() {
         ? applyRemoteSnapshot(snapshot, current.sync.conflict!.remoteSnapshot)
         : snapshot,
     )
-    showSyncNotice('Remote Google Sheets snapshot replaced the local version.')
+    showSyncNotice('Remote Google Sheets backup replaced the local version.')
   }, [setState, showSyncNotice])
 
   const keepLocalVersion = useCallback(async () => {
@@ -1024,6 +1233,7 @@ function App() {
           completedGoals={completedGoals}
           goalDraft={goalDraft}
           goalFormError={goalFormError}
+          latestWeightKg={latestWeightKg}
           setGoalDraft={setGoalDraft}
           addGoal={addGoal}
           updateGoal={updateGoal}
@@ -1040,9 +1250,28 @@ function App() {
           setWorkoutDraft={setWorkoutDraft}
           addWorkoutExercise={addWorkoutExercise}
           updateWorkoutExercise={updateWorkoutExercise}
+          addWorkoutSet={addWorkoutSet}
+          updateWorkoutSet={updateWorkoutSet}
+          cycleWorkoutSetKind={cycleWorkoutSetKind}
+          toggleWorkoutSetCompletion={toggleWorkoutSetCompletion}
+          removeWorkoutSet={removeWorkoutSet}
           removeWorkoutExercise={removeWorkoutExercise}
           logWorkout={logWorkout}
           deleteWorkout={deleteWorkout}
+        />
+      )
+      break
+    case 'history':
+      pageContent = (
+        <HistoryPage
+          profile={state.profile}
+          sortedWorkouts={sortedWorkouts}
+          sortedWeightEntries={sortedWeightEntries}
+          weightDraft={weightDraft}
+          weightFormError={weightFormError}
+          setWeightDraft={setWeightDraft}
+          logWeightEntry={logWeightEntry}
+          deleteWeightEntry={deleteWeightEntry}
         />
       )
       break
