@@ -91,6 +91,7 @@ export function createInitialState(): PersistedAppState {
       spreadsheetId: '',
       sheetName: DEFAULT_GOOGLE_SYNC_SHEET_NAME,
       clientId: '',
+      clientSecret: '',
       accessToken: '',
       tokenExpiresAt: null,
       lastSyncedAt: null,

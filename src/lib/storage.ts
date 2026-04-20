@@ -178,6 +178,7 @@ function asSync(
         ? record.sheetName
         : fallback.sheetName,
     clientId: typeof record.clientId === 'string' ? record.clientId : '',
+    clientSecret: typeof record.clientSecret === 'string' ? record.clientSecret : '',
     accessToken: typeof record.accessToken === 'string' ? record.accessToken : '',
     tokenExpiresAt: typeof record.tokenExpiresAt === 'string' ? record.tokenExpiresAt : null,
     lastSyncedAt: typeof record.lastSyncedAt === 'string' ? record.lastSyncedAt : null,

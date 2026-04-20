@@ -12,6 +12,10 @@ export function getConfiguredGoogleClientId() {
   return (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim()
 }
 
+export function getConfiguredGoogleClientSecret() {
+  return (import.meta.env.VITE_GOOGLE_CLIENT_SECRET ?? '').trim()
+}
+
 export function buildGoogleSheetUrl(
   spreadsheetId: string,
   gid: string | null = null,

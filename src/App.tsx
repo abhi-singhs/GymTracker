@@ -31,6 +31,7 @@ import {
 import {
   DEFAULT_GOOGLE_SYNC_SHEET_NAME,
   getConfiguredGoogleClientId,
+  getConfiguredGoogleClientSecret,
   parseGoogleSheetUrl,
 } from './lib/googleSheetsSetup'
 import {
@@ -81,8 +82,11 @@ function App() {
   const oauthCallbackHandledRef = useRef(false)
   const previousOnlineRef = useRef(online)
   const configuredGoogleClientId = getConfiguredGoogleClientId()
+  const configuredGoogleClientSecret = getConfiguredGoogleClientSecret()
   const manualGoogleClientId = state?.sync.clientId.trim() ?? ''
+  const manualGoogleClientSecret = state?.sync.clientSecret.trim() ?? ''
   const resolvedGoogleClientId = configuredGoogleClientId || manualGoogleClientId
+  const resolvedGoogleClientSecret = configuredGoogleClientSecret || manualGoogleClientSecret
 
   useEffect(() => {
     stateRef.current = state
@@ -569,6 +573,22 @@ function App() {
     [updateState],
   )
 
+  const updateGoogleClientSecret = useCallback(
+    (clientSecret: string) => {
+      updateState(
+        (current) => ({
+          ...current,
+          sync: {
+            ...current.sync,
+            clientSecret,
+          },
+        }),
+        { markDirty: false },
+      )
+    },
+    [updateState],
+  )
+
   const syncErrorMessage = useCallback((error: unknown) => {
     if (error instanceof GoogleSheetsSyncError || error instanceof GoogleOAuthError) {
       return error.message
@@ -609,6 +629,7 @@ function App() {
     try {
       await startGoogleAuthorization({
         clientId: resolvedGoogleClientId,
+        clientSecret: resolvedGoogleClientSecret,
         redirectUri: oauthRedirectUri,
         returnHash: typeof window === 'undefined' ? '#/settings' : window.location.hash || '#/settings',
       })
@@ -628,7 +649,15 @@ function App() {
       showSyncNotice(message)
       setSyncMode(null)
     }
-  }, [online, oauthRedirectUri, resolvedGoogleClientId, setState, showSyncNotice, syncErrorMessage])
+  }, [
+    online,
+    oauthRedirectUri,
+    resolvedGoogleClientId,
+    resolvedGoogleClientSecret,
+    setState,
+    showSyncNotice,
+    syncErrorMessage,
+  ])
 
   useEffect(() => {
     if (typeof window === 'undefined' || oauthCallbackHandledRef.current || !hydrated || !state) {
@@ -687,6 +716,7 @@ function App() {
       try {
         const token = await exchangeGoogleAuthCode({
           clientId: request.clientId,
+          clientSecret: request.clientSecret,
           code: authorizationCode,
           codeVerifier: request.codeVerifier,
           redirectUri: request.redirectUri,
@@ -697,7 +727,7 @@ function App() {
             ? {
                 ...snapshot,
                 sync: {
-                ...snapshot.sync,
+                  ...snapshot.sync,
                   accessToken: token.accessToken,
                   tokenExpiresAt: token.tokenExpiresAt,
                   lastError: null,
@@ -1039,6 +1069,7 @@ function App() {
           syncMode={syncMode}
           googleLoginConfigured={Boolean(resolvedGoogleClientId)}
           needsGoogleClientIdSetup={!configuredGoogleClientId}
+          needsGoogleClientSecretSetup={!configuredGoogleClientSecret}
           oauthOrigin={oauthOrigin}
           oauthRedirectUri={oauthRedirectUri}
           updateTheme={updateTheme}
@@ -1047,6 +1078,7 @@ function App() {
           regeneratePlan={regeneratePlan}
           updateSpreadsheetUrl={updateSpreadsheetUrl}
           updateGoogleClientId={updateGoogleClientId}
+          updateGoogleClientSecret={updateGoogleClientSecret}
           updateManualAccessToken={updateManualAccessToken}
           authorizeGoogleSheets={authorizeGoogleSheets}
           pushLocalSnapshot={() => pushLocalSnapshot()}

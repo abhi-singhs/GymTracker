@@ -27,6 +27,7 @@ interface SettingsPageProps {
   syncMode: SyncMode
   googleLoginConfigured: boolean
   needsGoogleClientIdSetup: boolean
+  needsGoogleClientSecretSetup: boolean
   oauthOrigin: string
   oauthRedirectUri: string
   updateTheme: (themePreference: ThemePreference) => void
@@ -35,6 +36,7 @@ interface SettingsPageProps {
   regeneratePlan: () => void
   updateSpreadsheetUrl: (spreadsheetUrl: string) => void
   updateGoogleClientId: (clientId: string) => void
+  updateGoogleClientSecret: (clientSecret: string) => void
   updateManualAccessToken: (accessToken: string) => void
   authorizeGoogleSheets: () => Promise<void>
   pushLocalSnapshot: () => Promise<void>
@@ -63,10 +65,12 @@ interface SyncSettingsPanelProps {
   syncMode: SyncMode
   googleLoginConfigured: boolean
   needsGoogleClientIdSetup: boolean
+  needsGoogleClientSecretSetup: boolean
   oauthOrigin: string
   oauthRedirectUri: string
   updateSpreadsheetUrl: (spreadsheetUrl: string) => void
   updateGoogleClientId: (clientId: string) => void
+  updateGoogleClientSecret: (clientSecret: string) => void
   updateManualAccessToken: (accessToken: string) => void
   authorizeGoogleSheets: () => Promise<void>
   pushLocalSnapshot: () => Promise<void>
@@ -266,10 +270,12 @@ function SyncSettingsPanel({
   syncMode,
   googleLoginConfigured,
   needsGoogleClientIdSetup,
+  needsGoogleClientSecretSetup,
   oauthOrigin,
   oauthRedirectUri,
   updateSpreadsheetUrl,
   updateGoogleClientId,
+  updateGoogleClientSecret,
   updateManualAccessToken,
   authorizeGoogleSheets,
   pushLocalSnapshot,
@@ -280,6 +286,7 @@ function SyncSettingsPanel({
   const invalidSheetUrl = Boolean(sync.spreadsheetUrl.trim() && !sync.spreadsheetId)
   const hasAccessToken = Boolean(sync.accessToken)
   const canSync = Boolean(sync.spreadsheetId && hasAccessToken && !invalidSheetUrl)
+  const needsGoogleOAuthSetup = needsGoogleClientIdSetup || needsGoogleClientSecretSetup
 
   return (
     <div className="settings-block">
@@ -348,25 +355,43 @@ function SyncSettingsPanel({
             </button>
           </div>
 
-          <details className="utility-panel" open={needsGoogleClientIdSetup}>
+          <details className="utility-panel" open={needsGoogleOAuthSetup}>
             <summary>Advanced setup</summary>
-            {needsGoogleClientIdSetup ? (
+            {needsGoogleOAuthSetup ? (
               <>
                 <p>
-                  Paste a Google OAuth Web client ID here if this build does not already provide{' '}
-                  <code>VITE_GOOGLE_CLIENT_ID</code>, then add the origin and redirect URI below to
-                  that Google OAuth client.
+                  Paste any Google OAuth Web client values this build does not already provide. Add
+                  the origin and redirect URI below to that Google OAuth client, and if Google says{' '}
+                  <code>client_secret</code> is missing, paste the client secret here too.
                 </p>
 
-                <label className="field">
-                  <span>Google OAuth client ID</span>
-                  <input
-                    type="text"
-                    value={sync.clientId}
-                    onChange={(event) => updateGoogleClientId(event.target.value)}
-                    placeholder="123456789012-abcdefghi.apps.googleusercontent.com"
-                  />
-                </label>
+                {needsGoogleClientIdSetup ? (
+                  <label className="field">
+                    <span>Google OAuth client ID</span>
+                    <input
+                      type="text"
+                      value={sync.clientId}
+                      onChange={(event) => updateGoogleClientId(event.target.value)}
+                      placeholder="123456789012-abcdefghi.apps.googleusercontent.com"
+                    />
+                  </label>
+                ) : null}
+
+                {needsGoogleClientSecretSetup ? (
+                  <label className="field">
+                    <span>Google OAuth client secret</span>
+                    <input
+                      type="password"
+                      value={sync.clientSecret}
+                      onChange={(event) => updateGoogleClientSecret(event.target.value)}
+                      placeholder="GOCSPX-..."
+                    />
+                    <span className="field-note">
+                      Stored locally on this device only and used only when exchanging the Google
+                      authorization code for an access token.
+                    </span>
+                  </label>
+                ) : null}
 
                 <div className="field-grid">
                   <label className="field compact">
@@ -527,6 +552,7 @@ export function SettingsPage({
   syncMode,
   googleLoginConfigured,
   needsGoogleClientIdSetup,
+  needsGoogleClientSecretSetup,
   oauthOrigin,
   oauthRedirectUri,
   updateTheme,
@@ -535,6 +561,7 @@ export function SettingsPage({
   regeneratePlan,
   updateSpreadsheetUrl,
   updateGoogleClientId,
+  updateGoogleClientSecret,
   updateManualAccessToken,
   authorizeGoogleSheets,
   pushLocalSnapshot,
@@ -574,10 +601,12 @@ export function SettingsPage({
           syncMode={syncMode}
           googleLoginConfigured={googleLoginConfigured}
           needsGoogleClientIdSetup={needsGoogleClientIdSetup}
+          needsGoogleClientSecretSetup={needsGoogleClientSecretSetup}
           oauthOrigin={oauthOrigin}
           oauthRedirectUri={oauthRedirectUri}
           updateSpreadsheetUrl={updateSpreadsheetUrl}
           updateGoogleClientId={updateGoogleClientId}
+          updateGoogleClientSecret={updateGoogleClientSecret}
           updateManualAccessToken={updateManualAccessToken}
           authorizeGoogleSheets={authorizeGoogleSheets}
           pushLocalSnapshot={pushLocalSnapshot}

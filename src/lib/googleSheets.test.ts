@@ -9,6 +9,7 @@ const settings: SyncSettings = {
   spreadsheetId: 'spreadsheet-id',
   sheetName: 'GymTracker',
   clientId: '',
+  clientSecret: '',
   accessToken: 'access-token',
   tokenExpiresAt: null,
   lastSyncedAt: null,

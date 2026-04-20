@@ -49,13 +49,14 @@ GymTracker sync is intentionally simple: it writes a JSON snapshot into a dedica
 1. Create a Google Sheet that you control.
 2. Enable the Google Sheets API for your Google Cloud project.
 3. Create an OAuth 2.0 **Web application** client in Google Cloud.
-4. Configure the OAuth client and either set `VITE_GOOGLE_CLIENT_ID` for the app build or keep the client ID handy for the in-app Advanced setup panel:
-   - Add your app origin as an **Authorized JavaScript origin**, for example `http://127.0.0.1:4173` in local development.
-   - Add your full app URL without the hash fragment as an **Authorized redirect URI**, for example `http://127.0.0.1:4173/` locally or `https://<owner>.github.io/<repo>/` on GitHub Pages.
-   - Preferred: expose the OAuth client ID to the frontend as `VITE_GOOGLE_CLIENT_ID`.
-   - Fallback: paste the OAuth client ID into the Settings page Advanced setup panel when the build does not already provide it.
+4. Configure the OAuth client and either set `VITE_GOOGLE_CLIENT_ID` for the app build and, if Google requires it during token exchange, `VITE_GOOGLE_CLIENT_SECRET`, or keep those values handy for the in-app Advanced setup panel:
+    - Add your app origin as an **Authorized JavaScript origin**, for example `http://127.0.0.1:4173` in local development.
+    - Add your full app URL without the hash fragment as an **Authorized redirect URI**, for example `http://127.0.0.1:4173/` locally or `https://<owner>.github.io/<repo>/` on GitHub Pages.
+    - Preferred: expose the OAuth client ID to the frontend as `VITE_GOOGLE_CLIENT_ID`.
+    - Optional when needed: expose the OAuth client secret as `VITE_GOOGLE_CLIENT_SECRET`.
+    - Fallback: paste the OAuth client ID and, if Google reports `client_secret` is missing, the OAuth client secret into the Settings page Advanced setup panel when the build does not already provide them.
 5. Open the app and paste the full **Google Sheets URL** for the spreadsheet you want GymTracker to use.
-6. Click **Login with Google**. GymTracker starts a browser OAuth authorization code flow, requests the `https://www.googleapis.com/auth/spreadsheets` scope, exchanges the returned code for an access token, and stores that token locally on the device.
+6. Click **Login with Google**. GymTracker starts a browser OAuth authorization code flow, requests the `https://www.googleapis.com/auth/spreadsheets` scope, exchanges the returned code for an access token, includes the configured client secret when one is available, and stores that token locally on the device.
 7. Use **Push to Google Sheets** to create or update the `GymTracker` tab inside that spreadsheet.
 8. Use **Pull from Google Sheets** to bring the latest remote snapshot back to the device.
 

@@ -118,6 +118,7 @@ export interface SyncSettings {
   spreadsheetId: string
   sheetName: string
   clientId: string
+  clientSecret: string
   accessToken: string
   tokenExpiresAt: string | null
   lastSyncedAt: string | null

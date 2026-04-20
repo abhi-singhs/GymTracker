@@ -8,6 +8,7 @@ interface StoredGoogleAuthorizationRequest {
   state: string
   codeVerifier: string
   clientId: string
+  clientSecret: string
   redirectUri: string
   returnHash: string
 }
@@ -29,6 +30,7 @@ export interface GoogleAuthorizationCallback {
 
 interface ExchangeGoogleAuthCodeOptions {
   clientId: string
+  clientSecret?: string
   code: string
   codeVerifier: string
   redirectUri: string
@@ -83,6 +85,7 @@ function readStoredRequest() {
       typeof (parsed as StoredGoogleAuthorizationRequest).state !== 'string' ||
       typeof (parsed as StoredGoogleAuthorizationRequest).codeVerifier !== 'string' ||
       typeof (parsed as StoredGoogleAuthorizationRequest).clientId !== 'string' ||
+      typeof (parsed as StoredGoogleAuthorizationRequest).clientSecret !== 'string' ||
       typeof (parsed as StoredGoogleAuthorizationRequest).redirectUri !== 'string' ||
       typeof (parsed as StoredGoogleAuthorizationRequest).returnHash !== 'string'
     ) {
@@ -154,10 +157,12 @@ export function readGoogleAuthorizationCallback(search: string): GoogleAuthoriza
 
 export async function startGoogleAuthorization(options: {
   clientId: string
+  clientSecret?: string
   redirectUri: string
   returnHash: string
 }) {
   const clientId = options.clientId.trim()
+  const clientSecret = (options.clientSecret ?? '').trim()
 
   if (!clientId) {
     throw new GoogleOAuthError('Add your Google OAuth client ID before authorizing.')
@@ -175,6 +180,7 @@ export async function startGoogleAuthorization(options: {
     state,
     codeVerifier,
     clientId,
+    clientSecret,
     redirectUri: options.redirectUri,
     returnHash: options.returnHash || '#/settings',
   })
@@ -219,22 +225,31 @@ export function replaceGoogleAuthorizationCallbackUrl(returnHash: string) {
 
 export async function exchangeGoogleAuthCode({
   clientId,
+  clientSecret,
   code,
   codeVerifier,
   redirectUri,
 }: ExchangeGoogleAuthCodeOptions): Promise<ExchangeGoogleAuthCodeResult> {
+  const body = new URLSearchParams({
+    client_id: clientId,
+    code,
+    code_verifier: codeVerifier,
+    redirect_uri: redirectUri,
+    grant_type: 'authorization_code',
+  })
+
+  const resolvedClientSecret = clientSecret?.trim()
+
+  if (resolvedClientSecret) {
+    body.set('client_secret', resolvedClientSecret)
+  }
+
   const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      client_id: clientId,
-      code,
-      code_verifier: codeVerifier,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    }).toString(),
+    body: body.toString(),
   })
 
   const rawBody = await response.text()
