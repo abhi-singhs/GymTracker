@@ -1,4 +1,5 @@
 import { generateWorkoutPlan } from './recommendations'
+import { DEFAULT_GOOGLE_SYNC_SHEET_NAME } from './googleSheetsSetup'
 import type {
   EquipmentAccess,
   FitnessLevel,
@@ -9,6 +10,7 @@ import type {
   ThemePreference,
   WorkoutFocus,
 } from './types'
+import { APP_VERSION } from './types'
 
 const DEFAULT_PROFILE = {
   name: 'Athlete',
@@ -78,20 +80,20 @@ export function createInitialState(): PersistedAppState {
   const now = new Date().toISOString()
 
   return {
-    version: 1,
+    version: APP_VERSION,
     themePreference: 'system',
     profile: DEFAULT_PROFILE,
     goals: [],
     workouts: [],
     activePlan: generateWorkoutPlan(DEFAULT_PROFILE, []),
     sync: {
-      owner: '',
-      repo: '',
-      branch: 'main',
-      path: 'data/gymtracker.json',
-      token: '',
+      spreadsheetUrl: '',
+      spreadsheetId: '',
+      sheetName: DEFAULT_GOOGLE_SYNC_SHEET_NAME,
+      clientId: '',
+      accessToken: '',
+      tokenExpiresAt: null,
       lastSyncedAt: null,
-      remoteSha: null,
       lastSyncedFingerprint: null,
       pendingPush: false,
       lastError: null,

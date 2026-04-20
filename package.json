@@ -2,7 +2,7 @@
   "name": "gymtracker",
   "private": true,
   "version": "0.0.0",
-  "description": "Offline-first gym tracker PWA for logging workouts, generating training plans, and syncing snapshots to GitHub.",
+  "description": "Offline-first gym tracker PWA for logging workouts, generating training plans, and syncing snapshots to Google Sheets.",
   "keywords": [
     "gym",
     "fitness",

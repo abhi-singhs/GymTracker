@@ -568,6 +568,21 @@ h3 {
   gap: 0.45rem;
 }
 
+.field-note {
+  color: var(--text-3);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.field-note a {
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.field-note code {
+  overflow-wrap: anywhere;
+}
+
 .field.compact span,
 .field-label,
 .goal-target span,
@@ -895,6 +910,32 @@ h3 {
   margin-top: 0.9rem;
 }
 
+.utility-panel {
+  padding: 1rem 1.05rem;
+  border-radius: 1.35rem;
+  border: 1px dashed var(--line);
+  background: color-mix(in oklch, var(--surface-strong) 42%, var(--surface));
+}
+
+.utility-panel summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.utility-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.utility-panel p {
+  margin: 0.85rem 0 0;
+}
+
+.utility-panel[open] summary {
+  margin-bottom: 0.85rem;
+}
+
 .mobile-tabbar {
   display: none;
   width: 100%;
@@ -987,7 +1028,7 @@ h3 {
   }
 
   .sync-meta {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

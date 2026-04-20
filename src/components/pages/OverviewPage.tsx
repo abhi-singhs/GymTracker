@@ -39,7 +39,7 @@ export function OverviewPage({
       <section className="hero-panel" id="overview">
         <div className="hero-copy">
           <p className="eyebrow">Calm, motivating, and entirely yours</p>
-          <h1>Train with clarity. Keep your progress on-device and in your own private repo.</h1>
+          <h1>Train with clarity. Keep your progress on-device and in your own Google Sheet.</h1>
           <p className="hero-summary">{pageHeadline}</p>
 
           <div className="hero-actions">
@@ -111,12 +111,12 @@ export function OverviewPage({
         <article className="metric-block">
           <p>Sync health</p>
           <strong>
-            {syncPendingPush ? 'Queued locally' : lastSyncedAt ? 'Aligned to GitHub' : 'Local only'}
+            {syncPendingPush ? 'Queued locally' : lastSyncedAt ? 'Aligned to Google Sheets' : 'Local only'}
           </strong>
           <span>
             {syncReady
               ? `Last sync ${formatDateTime(lastSyncedAt)}.`
-              : 'Add repository details when you want backup and sync.'}
+              : 'Paste a Google Sheets URL and log in with Google when you want backup and sync.'}
           </span>
         </article>
       </section>

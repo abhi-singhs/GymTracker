@@ -23,11 +23,25 @@ import {
   workoutHeadline,
 } from './lib/dashboard'
 import {
-  GitHubSyncError,
+  GoogleSheetsSyncError,
   fetchRemoteSnapshot,
   pushRemoteSnapshot,
   syncSettingsComplete,
-} from './lib/github'
+} from './lib/googleSheets'
+import {
+  DEFAULT_GOOGLE_SYNC_SHEET_NAME,
+  getConfiguredGoogleClientId,
+  parseGoogleSheetUrl,
+} from './lib/googleSheetsSetup'
+import {
+  GoogleOAuthError,
+  consumeGoogleAuthorizationRequest,
+  exchangeGoogleAuthCode,
+  getGoogleOAuthRedirectUri,
+  readGoogleAuthorizationCallback,
+  replaceGoogleAuthorizationCallbackUrl,
+  startGoogleAuthorization,
+} from './lib/googleOAuth'
 import { generateWorkoutPlan, getPlanFingerprint, inferWorkoutFocus } from './lib/recommendations'
 import {
   applyRemoteSnapshot,
@@ -44,7 +58,7 @@ import type {
 } from './lib/types'
 import { createId, isInCurrentWeek, workoutVolume } from './lib/utils'
 
-type SyncMode = 'pull' | 'push' | 'resolve' | null
+type SyncMode = 'pull' | 'push' | 'resolve' | 'authorize' | null
 const SYNC_NOTICE_TIMEOUT_MS = 5000
 
 interface SyncNoticeState {
@@ -64,7 +78,11 @@ function App() {
   const online = useOnlineStatus()
   const prefersDark = usePrefersDark()
   const stateRef = useRef<PersistedAppState | null>(state)
+  const oauthCallbackHandledRef = useRef(false)
   const previousOnlineRef = useRef(online)
+  const configuredGoogleClientId = getConfiguredGoogleClientId()
+  const manualGoogleClientId = state?.sync.clientId.trim() ?? ''
+  const resolvedGoogleClientId = configuredGoogleClientId || manualGoogleClientId
 
   useEffect(() => {
     stateRef.current = state
@@ -208,6 +226,17 @@ function App() {
     sortedWorkouts,
     planNeedsRefresh,
   )
+  const oauthRedirectUri = useMemo(
+    () => (typeof window === 'undefined' ? '' : getGoogleOAuthRedirectUri(window.location.href)),
+    [],
+  )
+  const oauthOrigin = useMemo(() => {
+    if (!oauthRedirectUri) {
+      return ''
+    }
+
+    return new URL(oauthRedirectUri).origin
+  }, [oauthRedirectUri])
   const currentTab = NAV_TABS.find((tab) => tab.path === location.pathname) ?? null
 
   useEffect(() => {
@@ -487,17 +516,51 @@ function App() {
     [updatePlanDay],
   )
 
-  const updateSyncField = useCallback(
-    (
-      field: 'owner' | 'repo' | 'branch' | 'path' | 'token',
-      value: PersistedAppState['sync'][typeof field],
-    ) => {
+  const updateSpreadsheetUrl = useCallback(
+    (spreadsheetUrl: string) => {
+      const parsed = parseGoogleSheetUrl(spreadsheetUrl)
+
       updateState(
         (current) => ({
           ...current,
           sync: {
             ...current.sync,
-            [field]: value,
+            spreadsheetUrl,
+            spreadsheetId: parsed?.spreadsheetId ?? '',
+            sheetName: current.sync.sheetName || DEFAULT_GOOGLE_SYNC_SHEET_NAME,
+          },
+        }),
+        { markDirty: false },
+      )
+    },
+    [updateState],
+  )
+
+  const updateManualAccessToken = useCallback(
+    (accessToken: string) => {
+      updateState(
+        (current) => ({
+          ...current,
+          sync: {
+            ...current.sync,
+            accessToken,
+            tokenExpiresAt: null,
+          },
+        }),
+        { markDirty: false },
+      )
+    },
+    [updateState],
+  )
+
+  const updateGoogleClientId = useCallback(
+    (clientId: string) => {
+      updateState(
+        (current) => ({
+          ...current,
+          sync: {
+            ...current.sync,
+            clientId,
           },
         }),
         { markDirty: false },
@@ -507,7 +570,7 @@ function App() {
   )
 
   const syncErrorMessage = useCallback((error: unknown) => {
-    if (error instanceof GitHubSyncError) {
+    if (error instanceof GoogleSheetsSyncError || error instanceof GoogleOAuthError) {
       return error.message
     }
 
@@ -515,8 +578,141 @@ function App() {
       return error.message
     }
 
-    return 'Something went wrong while talking to GitHub.'
+    return 'Something went wrong while talking to Google.'
   }, [])
+
+  const authorizeGoogleSheets = useCallback(async () => {
+    const current = stateRef.current
+
+    if (!current) {
+      return
+    }
+
+    if (!current.sync.spreadsheetId) {
+      showSyncNotice('Paste a valid Google Sheets URL before logging in with Google.')
+      return
+    }
+
+    if (!resolvedGoogleClientId) {
+      showSyncNotice('Add a Google OAuth client ID in Advanced setup before logging in with Google.')
+      return
+    }
+
+    if (!online) {
+      showSyncNotice('Google authorization is unavailable while you are offline.')
+      return
+    }
+
+    setSyncMode('authorize')
+    setSyncNotice(null)
+
+    try {
+      await startGoogleAuthorization({
+        clientId: resolvedGoogleClientId,
+        redirectUri: oauthRedirectUri,
+        returnHash: typeof window === 'undefined' ? '#/settings' : window.location.hash || '#/settings',
+      })
+    } catch (error: unknown) {
+      const message = syncErrorMessage(error)
+      setState((snapshot) =>
+        snapshot
+          ? {
+              ...snapshot,
+              sync: {
+                ...snapshot.sync,
+                lastError: message,
+              },
+            }
+          : snapshot,
+      )
+      showSyncNotice(message)
+      setSyncMode(null)
+    }
+  }, [online, oauthRedirectUri, resolvedGoogleClientId, setState, showSyncNotice, syncErrorMessage])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || oauthCallbackHandledRef.current || !hydrated || !state) {
+      return
+    }
+
+    const callback = readGoogleAuthorizationCallback(window.location.search)
+
+    if (!callback) {
+      return
+    }
+
+    oauthCallbackHandledRef.current = true
+
+    const request = consumeGoogleAuthorizationRequest(callback.state)
+    replaceGoogleAuthorizationCallbackUrl(
+      request?.returnHash ?? (window.location.hash || '#/settings'),
+    )
+
+    const setAuthorizationError = (message: string) => {
+      setState((snapshot) =>
+        snapshot
+          ? {
+              ...snapshot,
+              sync: {
+                ...snapshot.sync,
+                lastError: message,
+              },
+            }
+          : snapshot,
+      )
+      showSyncNotice(message)
+    }
+
+    if (!request) {
+      setAuthorizationError('Google authorization state expired or was missing. Start authorization again.')
+      return
+    }
+
+    if (callback.error) {
+      const message = `Google authorization failed: ${callback.error}${
+        callback.errorDescription ? ` ${callback.errorDescription}` : ''
+      }`
+      setAuthorizationError(message)
+      return
+    }
+
+    if (!callback.code) {
+      setAuthorizationError('Google did not return an authorization code.')
+      return
+    }
+
+    const authorizationCode = callback.code
+
+    void (async () => {
+      try {
+        const token = await exchangeGoogleAuthCode({
+          clientId: request.clientId,
+          code: authorizationCode,
+          codeVerifier: request.codeVerifier,
+          redirectUri: request.redirectUri,
+        })
+
+        setState((snapshot) =>
+          snapshot
+            ? {
+                ...snapshot,
+                sync: {
+                ...snapshot.sync,
+                  accessToken: token.accessToken,
+                  tokenExpiresAt: token.tokenExpiresAt,
+                  lastError: null,
+                },
+              }
+            : snapshot,
+        )
+        showSyncNotice('Google login complete. Access granted for Google Sheets sync on this device.')
+      } catch (error: unknown) {
+        setAuthorizationError(syncErrorMessage(error))
+      } finally {
+        setSyncMode(null)
+      }
+    })()
+  }, [hydrated, setState, showSyncNotice, state, syncErrorMessage])
 
   const pushLocalSnapshot = useCallback(
     async (forceLocal = false) => {
@@ -527,7 +723,12 @@ function App() {
       }
 
       if (!syncSettingsComplete(current.sync)) {
-        showSyncNotice('Complete the repository settings before syncing.')
+        showSyncNotice('Paste a valid Google Sheets URL and log in with Google before syncing.')
+        return
+      }
+
+      if (current.sync.tokenExpiresAt && new Date(current.sync.tokenExpiresAt).getTime() <= Date.now()) {
+        showSyncNotice('Google access token expired. Authorize with Google again before syncing.')
         return
       }
 
@@ -563,10 +764,10 @@ function App() {
           remoteFingerprint !== lastSyncedFingerprint
 
         if (remote.snapshot && remoteChanged && !localChanged && !forceLocal) {
-          setState((snapshot) =>
-            snapshot ? applyRemoteSnapshot(snapshot, remote.snapshot!, remote.sha) : snapshot,
+          setState((snapshot) => (snapshot ? applyRemoteSnapshot(snapshot, remote.snapshot!) : snapshot))
+          showSyncNotice(
+            'Google Sheets already had the newer snapshot, so local data was updated from remote.',
           )
-          showSyncNotice('GitHub already had the newer snapshot, so local data was updated from remote.')
           return
         }
 
@@ -582,12 +783,11 @@ function App() {
                 ...snapshot.sync,
                 conflict: {
                   detectedAt: new Date().toISOString(),
-                  remoteSha: remote.sha ?? '',
                   remoteExportedAt: remote.snapshot.exportedAt,
                   remoteSnapshot: remote.snapshot,
                 },
                 lastError:
-                  'GitHub has newer data than your local copy. Choose which version to keep.',
+                  'Google Sheets has newer data than your local copy. Choose which version to keep.',
                 pendingPush: true,
               },
             }
@@ -596,11 +796,7 @@ function App() {
           return
         }
 
-        const pushed = await pushRemoteSnapshot(
-          current.sync,
-          localSnapshot,
-          forceLocal ? remote.sha : (current.sync.remoteSha ?? remote.sha),
-        )
+        await pushRemoteSnapshot(current.sync, localSnapshot, remote.chunkCount)
 
         setState((snapshot) => {
           if (!snapshot) {
@@ -611,7 +807,6 @@ function App() {
             ...snapshot,
             sync: {
               ...snapshot.sync,
-              remoteSha: pushed.sha,
               lastSyncedAt: new Date().toISOString(),
               lastSyncedFingerprint: localFingerprint,
               pendingPush: false,
@@ -622,8 +817,8 @@ function App() {
         })
         showSyncNotice(
           remote.snapshot
-            ? 'Local snapshot pushed to GitHub.'
-            : 'First private repository snapshot created.',
+            ? 'Local snapshot pushed to Google Sheets.'
+            : 'First Google Sheets snapshot created.',
         )
       } catch (error: unknown) {
         const message = syncErrorMessage(error)
@@ -656,7 +851,12 @@ function App() {
     }
 
     if (!syncSettingsComplete(current.sync)) {
-      showSyncNotice('Complete the repository settings before pulling from GitHub.')
+      showSyncNotice('Paste a valid Google Sheets URL and log in with Google before pulling.')
+      return
+    }
+
+    if (current.sync.tokenExpiresAt && new Date(current.sync.tokenExpiresAt).getTime() <= Date.now()) {
+      showSyncNotice('Google access token expired. Authorize with Google again before pulling.')
       return
     }
 
@@ -672,14 +872,12 @@ function App() {
       const remote = await fetchRemoteSnapshot(current.sync)
 
       if (!remote.snapshot) {
-        showSyncNotice('No remote snapshot exists yet. Push your local data first.')
+        showSyncNotice('No Google Sheets snapshot exists yet. Push your local data first.')
         return
       }
 
-      setState((snapshot) =>
-        snapshot ? applyRemoteSnapshot(snapshot, remote.snapshot!, remote.sha) : snapshot,
-      )
-      showSyncNotice('Latest data pulled from GitHub.')
+      setState((snapshot) => (snapshot ? applyRemoteSnapshot(snapshot, remote.snapshot!) : snapshot))
+      showSyncNotice('Latest data pulled from Google Sheets.')
     } catch (error: unknown) {
       const message = syncErrorMessage(error)
       setState((snapshot) => {
@@ -710,14 +908,10 @@ function App() {
 
     setState((snapshot) =>
       snapshot
-        ? applyRemoteSnapshot(
-            snapshot,
-            current.sync.conflict!.remoteSnapshot,
-            current.sync.conflict!.remoteSha,
-          )
+        ? applyRemoteSnapshot(snapshot, current.sync.conflict!.remoteSnapshot)
         : snapshot,
     )
-    showSyncNotice('Remote GitHub snapshot replaced the local version.')
+    showSyncNotice('Remote Google Sheets snapshot replaced the local version.')
   }, [setState, showSyncNotice])
 
   const keepLocalVersion = useCallback(async () => {
@@ -731,6 +925,10 @@ function App() {
       cameBackOnline &&
       state?.sync.pendingPush &&
       syncSettingsComplete(state.sync) &&
+      !(
+        state.sync.tokenExpiresAt &&
+        new Date(state.sync.tokenExpiresAt).getTime() <= Date.now()
+      ) &&
       !state.sync.conflict
     ) {
       void pushLocalSnapshot()
@@ -839,11 +1037,18 @@ function App() {
           syncReady={syncReady}
           planNeedsRefresh={planNeedsRefresh}
           syncMode={syncMode}
+          googleLoginConfigured={Boolean(resolvedGoogleClientId)}
+          needsGoogleClientIdSetup={!configuredGoogleClientId}
+          oauthOrigin={oauthOrigin}
+          oauthRedirectUri={oauthRedirectUri}
           updateTheme={updateTheme}
           updateProfileField={updateProfileField}
           toggleTrainingDay={toggleTrainingDay}
           regeneratePlan={regeneratePlan}
-          updateSyncField={updateSyncField}
+          updateSpreadsheetUrl={updateSpreadsheetUrl}
+          updateGoogleClientId={updateGoogleClientId}
+          updateManualAccessToken={updateManualAccessToken}
+          authorizeGoogleSheets={authorizeGoogleSheets}
           pushLocalSnapshot={() => pushLocalSnapshot()}
           pullRemoteData={pullRemoteData}
           keepRemoteVersion={keepRemoteVersion}

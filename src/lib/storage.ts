@@ -1,12 +1,15 @@
 import { openDB } from 'idb'
 import { createInitialState } from './defaults'
+import { buildGoogleSheetUrl, parseGoogleSheetUrl } from './googleSheetsSetup'
 import { generateWorkoutPlan, getPlanFingerprint } from './recommendations'
 import type {
   Goal,
   PersistedAppState,
   Profile,
   RemoteSnapshot,
+  SyncConflict,
   SyncSettings,
+  ThemePreference,
   WorkoutPlan,
   WorkoutSession,
 } from './types'
@@ -87,14 +90,102 @@ function asPlan(record: unknown, profile: Profile, goals: Goal[]): WorkoutPlan {
   }
 }
 
-function asSync(record: unknown, fallback: SyncSettings): SyncSettings {
+function isThemePreference(value: unknown): value is ThemePreference {
+  return value === 'light' || value === 'dark' || value === 'system'
+}
+
+interface NormalizedSnapshotPayload {
+  version: number
+  themePreference: ThemePreference
+  profile: Profile
+  goals: Goal[]
+  workouts: WorkoutSession[]
+  activePlan: WorkoutPlan
+}
+
+function normalizeSnapshotPayload(
+  record: UnknownRecord,
+  seed: PersistedAppState,
+): NormalizedSnapshotPayload {
+  const profile = asProfile(record.profile, seed.profile)
+  const goals = asGoals(record.goals)
+  const workouts = asWorkouts(record.workouts)
+  const activePlan = asPlan(record.activePlan, profile, goals)
+
+  return {
+    version: typeof record.version === 'number' ? record.version : APP_VERSION,
+    themePreference: isThemePreference(record.themePreference)
+      ? record.themePreference
+      : seed.themePreference,
+    profile,
+    goals,
+    workouts,
+    activePlan,
+  }
+}
+
+function asConflict(record: unknown, seed: PersistedAppState): SyncConflict | null {
+  if (!isRecord(record) || !isRecord(record.remoteSnapshot)) {
+    return null
+  }
+
+  const remote = normalizeSnapshotPayload(record.remoteSnapshot, seed)
+  const exportedAt =
+    typeof record.remoteSnapshot.exportedAt === 'string'
+      ? record.remoteSnapshot.exportedAt
+      : seed.metadata.updatedAt
+
+  return {
+    detectedAt: typeof record.detectedAt === 'string' ? record.detectedAt : seed.metadata.updatedAt,
+    remoteExportedAt:
+      typeof record.remoteExportedAt === 'string' ? record.remoteExportedAt : exportedAt,
+    remoteSnapshot: {
+      version: remote.version,
+      exportedAt,
+      themePreference: remote.themePreference,
+      profile: remote.profile,
+      goals: remote.goals,
+      workouts: remote.workouts,
+      activePlan: remote.activePlan,
+    },
+  }
+}
+
+function asSync(
+  record: unknown,
+  fallback: SyncSettings,
+  seed: PersistedAppState,
+): SyncSettings {
   if (!isRecord(record)) {
     return fallback
   }
 
+  const spreadsheetUrl =
+    typeof record.spreadsheetUrl === 'string'
+      ? record.spreadsheetUrl
+      : typeof record.spreadsheetId === 'string' && record.spreadsheetId.trim()
+        ? buildGoogleSheetUrl(record.spreadsheetId.trim())
+        : ''
+  const parsedSpreadsheet = parseGoogleSheetUrl(spreadsheetUrl)
+
   return {
-    ...fallback,
-    ...record,
+    spreadsheetUrl,
+    spreadsheetId: parsedSpreadsheet?.spreadsheetId ?? (
+      typeof record.spreadsheetId === 'string' ? record.spreadsheetId : ''
+    ),
+    sheetName:
+      typeof record.sheetName === 'string' && record.sheetName.trim()
+        ? record.sheetName
+        : fallback.sheetName,
+    clientId: typeof record.clientId === 'string' ? record.clientId : '',
+    accessToken: typeof record.accessToken === 'string' ? record.accessToken : '',
+    tokenExpiresAt: typeof record.tokenExpiresAt === 'string' ? record.tokenExpiresAt : null,
+    lastSyncedAt: typeof record.lastSyncedAt === 'string' ? record.lastSyncedAt : null,
+    lastSyncedFingerprint:
+      typeof record.lastSyncedFingerprint === 'string' ? record.lastSyncedFingerprint : null,
+    pendingPush: record.pendingPush === true,
+    lastError: typeof record.lastError === 'string' ? record.lastError : null,
+    conflict: asConflict(record.conflict, seed),
   }
 }
 
@@ -104,25 +195,13 @@ export function migratePersistedState(record: unknown): PersistedAppState {
   }
 
   const seed = createInitialState()
-  const profile = asProfile(record.profile, seed.profile)
-  const goals = asGoals(record.goals)
-  const workouts = asWorkouts(record.workouts)
-  const activePlan = asPlan(record.activePlan, profile, goals)
+  const normalized = normalizeSnapshotPayload(record, seed)
 
   return {
     ...seed,
+    ...normalized,
     version: APP_VERSION,
-    themePreference:
-      record.themePreference === 'light' ||
-      record.themePreference === 'dark' ||
-      record.themePreference === 'system'
-        ? record.themePreference
-        : seed.themePreference,
-    profile,
-    goals,
-    workouts,
-    activePlan,
-    sync: asSync(record.sync, seed.sync),
+    sync: asSync(record.sync, seed.sync, seed),
     metadata: {
       ...seed.metadata,
       ...(isRecord(record.metadata) ? record.metadata : {}),
@@ -177,7 +256,6 @@ export function remoteSnapshotFingerprint(snapshot: RemoteSnapshot) {
 export function applyRemoteSnapshot(
   currentState: PersistedAppState,
   snapshot: RemoteSnapshot,
-  remoteSha: string | null,
 ) {
   const merged = migratePersistedState({
     ...currentState,
@@ -194,7 +272,6 @@ export function applyRemoteSnapshot(
     ...merged,
     sync: {
       ...currentState.sync,
-      remoteSha,
       lastSyncedAt: now,
       lastSyncedFingerprint: remoteSnapshotFingerprint(snapshot),
       pendingPush: false,

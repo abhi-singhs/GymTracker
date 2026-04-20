@@ -1,4 +1,4 @@
-export const APP_VERSION = 1
+export const APP_VERSION = 2
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
@@ -109,19 +109,18 @@ export interface RemoteSnapshot {
 
 export interface SyncConflict {
   detectedAt: string
-  remoteSha: string
   remoteExportedAt: string
   remoteSnapshot: RemoteSnapshot
 }
 
 export interface SyncSettings {
-  owner: string
-  repo: string
-  branch: string
-  path: string
-  token: string
+  spreadsheetUrl: string
+  spreadsheetId: string
+  sheetName: string
+  clientId: string
+  accessToken: string
+  tokenExpiresAt: string | null
   lastSyncedAt: string | null
-  remoteSha: string | null
   lastSyncedFingerprint: string | null
   pendingPush: boolean
   lastError: string | null

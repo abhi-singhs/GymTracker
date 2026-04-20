@@ -16,13 +16,8 @@ import type {
 } from '../../lib/types'
 import { SectionHeader } from '../SectionHeader'
 
-type SyncMode = 'pull' | 'push' | 'resolve' | null
-type EditableSyncField = 'owner' | 'repo' | 'branch' | 'path' | 'token'
+type SyncMode = 'pull' | 'push' | 'resolve' | 'authorize' | null
 type UpdateProfileField = <Field extends keyof Profile>(field: Field, value: Profile[Field]) => void
-type UpdateSyncField = <Field extends EditableSyncField>(
-  field: Field,
-  value: AppSyncSettings[Field],
-) => void
 
 interface SettingsPageProps {
   state: PersistedAppState
@@ -30,11 +25,18 @@ interface SettingsPageProps {
   syncReady: boolean
   planNeedsRefresh: boolean
   syncMode: SyncMode
+  googleLoginConfigured: boolean
+  needsGoogleClientIdSetup: boolean
+  oauthOrigin: string
+  oauthRedirectUri: string
   updateTheme: (themePreference: ThemePreference) => void
   updateProfileField: UpdateProfileField
   toggleTrainingDay: (day: string) => void
   regeneratePlan: () => void
-  updateSyncField: UpdateSyncField
+  updateSpreadsheetUrl: (spreadsheetUrl: string) => void
+  updateGoogleClientId: (clientId: string) => void
+  updateManualAccessToken: (accessToken: string) => void
+  authorizeGoogleSheets: () => Promise<void>
   pushLocalSnapshot: () => Promise<void>
   pullRemoteData: () => Promise<void>
   keepRemoteVersion: () => void
@@ -59,7 +61,14 @@ interface SyncSettingsPanelProps {
   sync: AppSyncSettings
   syncReady: boolean
   syncMode: SyncMode
-  updateSyncField: UpdateSyncField
+  googleLoginConfigured: boolean
+  needsGoogleClientIdSetup: boolean
+  oauthOrigin: string
+  oauthRedirectUri: string
+  updateSpreadsheetUrl: (spreadsheetUrl: string) => void
+  updateGoogleClientId: (clientId: string) => void
+  updateManualAccessToken: (accessToken: string) => void
+  authorizeGoogleSheets: () => Promise<void>
   pushLocalSnapshot: () => Promise<void>
   pullRemoteData: () => Promise<void>
   keepRemoteVersion: () => void
@@ -255,18 +264,29 @@ function SyncSettingsPanel({
   sync,
   syncReady,
   syncMode,
-  updateSyncField,
+  googleLoginConfigured,
+  needsGoogleClientIdSetup,
+  oauthOrigin,
+  oauthRedirectUri,
+  updateSpreadsheetUrl,
+  updateGoogleClientId,
+  updateManualAccessToken,
+  authorizeGoogleSheets,
   pushLocalSnapshot,
   pullRemoteData,
   keepRemoteVersion,
   keepLocalVersion,
 }: SyncSettingsPanelProps) {
+  const invalidSheetUrl = Boolean(sync.spreadsheetUrl.trim() && !sync.spreadsheetId)
+  const hasAccessToken = Boolean(sync.accessToken)
+  const canSync = Boolean(sync.spreadsheetId && hasAccessToken && !invalidSheetUrl)
+
   return (
     <div className="settings-block">
       <div className="settings-block-header">
         <p className="eyebrow">Private sync</p>
-        <h3>Back up the journal to your own repository</h3>
-        <p>Local storage stays primary. Push or pull when you want the GitHub copy to match.</p>
+        <h3>Back up the journal to your own Google Sheet</h3>
+        <p>Paste a Google Sheets URL, log in with Google, then push or pull when you want the remote copy to match this device.</p>
       </div>
 
       <div className="sync-layout">
@@ -279,78 +299,128 @@ function SyncSettingsPanel({
         >
           <div className="field-grid">
             <label className="field">
-              <span>Owner</span>
+              <span>Google Sheets URL</span>
               <input
-                type="text"
-                value={sync.owner}
-                onChange={(event) => updateSyncField('owner', event.target.value)}
-                placeholder="your-github-name"
+                type="url"
+                value={sync.spreadsheetUrl}
+                onChange={(event) => updateSpreadsheetUrl(event.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/..."
               />
-            </label>
-
-            <label className="field">
-              <span>Repository</span>
-              <input
-                type="text"
-                value={sync.repo}
-                onChange={(event) => updateSyncField('repo', event.target.value)}
-                placeholder="private-gymtracker-data"
-              />
-            </label>
-
-            <label className="field">
-              <span>Branch</span>
-              <input
-                type="text"
-                value={sync.branch}
-                onChange={(event) => updateSyncField('branch', event.target.value)}
-              />
-            </label>
-
-            <label className="field">
-              <span>Path</span>
-              <input
-                type="text"
-                value={sync.path}
-                onChange={(event) => updateSyncField('path', event.target.value)}
-              />
+              <span className="field-note">
+                Paste the URL of the spreadsheet GymTracker should use. Sync data is stored in the{' '}
+                <strong>{sync.sheetName}</strong> tab inside that spreadsheet.
+              </span>
             </label>
           </div>
 
-          <label className="field">
-            <span>Personal access token</span>
-            <input
-              type="password"
-              value={sync.token}
-              onChange={(event) => updateSyncField('token', event.target.value)}
-              placeholder="Stored locally on this device only"
-            />
-          </label>
+          {invalidSheetUrl ? (
+            <p className="form-error">
+              Paste a full Google Sheets URL from <code>docs.google.com/spreadsheets</code> so
+              GymTracker can find the spreadsheet.
+            </p>
+          ) : null}
 
           <div className="sync-actions">
-            <button className="button primary" type="submit" disabled={syncMode !== null}>
-              {syncMode === 'push' || syncMode === 'resolve' ? 'Syncing...' : 'Push local snapshot'}
+            <button
+              className="button subtle"
+              type="button"
+              onClick={() => void authorizeGoogleSheets()}
+              disabled={syncMode !== null || !googleLoginConfigured || invalidSheetUrl}
+            >
+              {syncMode === 'authorize'
+                ? 'Logging in...'
+                : hasAccessToken
+                  ? 'Refresh Google login'
+                  : 'Login with Google'}
+            </button>
+
+            <button className="button primary" type="submit" disabled={syncMode !== null || !canSync}>
+              {syncMode === 'push' || syncMode === 'resolve' ? 'Syncing...' : 'Push to Google Sheets'}
             </button>
 
             <button
               className="button subtle"
               type="button"
               onClick={() => void pullRemoteData()}
-              disabled={syncMode !== null}
+              disabled={syncMode !== null || !canSync}
             >
-              {syncMode === 'pull' ? 'Pulling...' : 'Pull from GitHub'}
+              {syncMode === 'pull' ? 'Pulling...' : 'Pull from Google Sheets'}
             </button>
           </div>
+
+          <details className="utility-panel" open={needsGoogleClientIdSetup}>
+            <summary>Advanced setup</summary>
+            {needsGoogleClientIdSetup ? (
+              <>
+                <p>
+                  Paste a Google OAuth Web client ID here if this build does not already provide{' '}
+                  <code>VITE_GOOGLE_CLIENT_ID</code>, then add the origin and redirect URI below to
+                  that Google OAuth client.
+                </p>
+
+                <label className="field">
+                  <span>Google OAuth client ID</span>
+                  <input
+                    type="text"
+                    value={sync.clientId}
+                    onChange={(event) => updateGoogleClientId(event.target.value)}
+                    placeholder="123456789012-abcdefghi.apps.googleusercontent.com"
+                  />
+                </label>
+
+                <div className="field-grid">
+                  <label className="field compact">
+                    <span>Authorized JavaScript origin</span>
+                    <input type="text" value={oauthOrigin} readOnly aria-readonly="true" />
+                  </label>
+
+                  <label className="field compact">
+                    <span>Authorized redirect URI</span>
+                    <input type="text" value={oauthRedirectUri} readOnly aria-readonly="true" />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <p>
+                If you need to bypass Google login temporarily, you can paste a fresh short-lived
+                access token manually.
+              </p>
+            )}
+
+            <label className="field">
+              <span>Manual access token override</span>
+              <input
+                type="password"
+                value={sync.accessToken}
+                onChange={(event) => updateManualAccessToken(event.target.value)}
+                placeholder="Stored locally on this device only. Refresh it if Google expires it."
+              />
+              <span className="field-note">
+                GymTracker stores this token only on the current device and uses it only for
+                Google Sheets push and pull.
+              </span>
+            </label>
+          </details>
         </form>
 
         <aside className="sync-aside">
           <div className="sync-status-card">
-            <p className="eyebrow">Repository status</p>
-            <h3>{syncReady ? `${sync.owner}/${sync.repo}` : 'Not connected yet'}</h3>
+            <p className="eyebrow">Sheet status</p>
+            <h3>
+              {syncReady
+                ? 'Ready to sync'
+                : sync.spreadsheetUrl
+                  ? hasAccessToken
+                    ? 'Sync target saved'
+                    : 'Login needed'
+                  : 'Not connected yet'}
+            </h3>
             <p>
               {syncReady
-                ? `Branch ${sync.branch} · ${sync.path}`
-                : 'Add owner, repo, branch, path, and token to enable private sync.'}
+                ? sync.spreadsheetUrl
+                : sync.spreadsheetUrl
+                  ? sync.spreadsheetUrl
+                  : 'Paste a Google Sheets URL to choose the spreadsheet GymTracker should use.'}
             </p>
             <dl className="sync-meta">
               <div>
@@ -358,12 +428,22 @@ function SyncSettingsPanel({
                 <dd>{formatDateTime(sync.lastSyncedAt)}</dd>
               </div>
               <div>
-                <dt>Pending push</dt>
-                <dd>{sync.pendingPush ? 'Yes' : 'No'}</dd>
+                <dt>Google login</dt>
+                <dd>
+                  {!hasAccessToken
+                    ? 'Not connected'
+                    : sync.tokenExpiresAt
+                      ? `Expires ${formatDateTime(sync.tokenExpiresAt)}`
+                      : 'Stored locally'}
+                </dd>
               </div>
               <div>
-                <dt>Local backup</dt>
-                <dd>IndexedDB on this device</dd>
+                <dt>Sync tab</dt>
+                <dd>{sync.sheetName}</dd>
+              </div>
+              <div>
+                <dt>Pending push</dt>
+                <dd>{sync.pendingPush ? 'Yes' : 'No'}</dd>
               </div>
             </dl>
           </div>
@@ -428,7 +508,7 @@ function DeviceSettings({ updatedAt, syncReady, resetLocalData }: DeviceSettings
       <details className="danger-panel">
         <summary>Reset local journal</summary>
         <p>
-          Erase the device copy and rebuild the starter state. Your GitHub snapshot is left
+          Erase the device copy and rebuild the starter state. Your Google Sheets snapshot is left
           untouched until you decide to sync again.
         </p>
         <button className="button subtle" type="button" onClick={() => void resetLocalData()}>
@@ -445,11 +525,18 @@ export function SettingsPage({
   syncReady,
   planNeedsRefresh,
   syncMode,
+  googleLoginConfigured,
+  needsGoogleClientIdSetup,
+  oauthOrigin,
+  oauthRedirectUri,
   updateTheme,
   updateProfileField,
   toggleTrainingDay,
   regeneratePlan,
-  updateSyncField,
+  updateSpreadsheetUrl,
+  updateGoogleClientId,
+  updateManualAccessToken,
+  authorizeGoogleSheets,
   pushLocalSnapshot,
   pullRemoteData,
   keepRemoteVersion,
@@ -485,7 +572,14 @@ export function SettingsPage({
           sync={state.sync}
           syncReady={syncReady}
           syncMode={syncMode}
-          updateSyncField={updateSyncField}
+          googleLoginConfigured={googleLoginConfigured}
+          needsGoogleClientIdSetup={needsGoogleClientIdSetup}
+          oauthOrigin={oauthOrigin}
+          oauthRedirectUri={oauthRedirectUri}
+          updateSpreadsheetUrl={updateSpreadsheetUrl}
+          updateGoogleClientId={updateGoogleClientId}
+          updateManualAccessToken={updateManualAccessToken}
+          authorizeGoogleSheets={authorizeGoogleSheets}
           pushLocalSnapshot={pushLocalSnapshot}
           pullRemoteData={pullRemoteData}
           keepRemoteVersion={keepRemoteVersion}
