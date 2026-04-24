@@ -133,6 +133,8 @@ svg {
 .page-shell {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .ambient {
@@ -477,6 +479,8 @@ h3 {
 .section-surface {
   padding: clamp(1.3rem, 3vw, 2rem);
   container-type: inline-size;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .settings-stack {
@@ -1804,11 +1808,11 @@ h3 {
 
   .workout-tracker-surface {
     --tracker-set-grid:
-      minmax(2.5rem, 2.7rem)
-      minmax(5.5rem, 1.25fr)
-      minmax(4rem, 0.78fr)
-      minmax(4rem, 0.78fr)
-      2.8rem;
+      2.2rem
+      minmax(0, 1fr)
+      minmax(3rem, 0.78fr)
+      minmax(3rem, 0.78fr)
+      2.5rem;
   }
 
   .tracker-title-field input {
