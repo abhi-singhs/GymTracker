@@ -3,6 +3,7 @@ import { DEFAULT_GOOGLE_SYNC_SHEET_NAME } from './googleSheetsSetup'
 import type {
   EquipmentAccess,
   FitnessLevel,
+  FontSizePreference,
   GoalType,
   PersistedAppState,
   PrimaryGoal,
@@ -28,6 +29,13 @@ export const THEME_OPTIONS: Array<{ value: ThemePreference; label: string }> = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'Auto' },
+]
+
+export const FONT_SIZE_OPTIONS: Array<{ value: FontSizePreference; label: string }> = [
+  { value: 'small', label: 'Small' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'large', label: 'Large' },
+  { value: 'extra-large', label: 'Extra large' },
 ]
 
 export const FITNESS_LEVEL_OPTIONS: Array<{ value: FitnessLevel; label: string }> = [
@@ -84,6 +92,7 @@ export function createInitialState(): PersistedAppState {
   return {
     version: APP_VERSION,
     themePreference: 'system',
+    fontSizePreference: 'normal',
     profile: DEFAULT_PROFILE,
     goals: [],
     workouts: [],

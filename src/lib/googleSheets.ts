@@ -1,4 +1,5 @@
 import type {
+  FontSizePreference,
   Goal,
   GoalType,
   LoggedExercise,
@@ -168,6 +169,7 @@ function normalizeRemoteSnapshot(snapshot: unknown): RemoteSnapshot {
     version: typeof record.version === 'number' ? record.version : APP_VERSION,
     exportedAt,
     themePreference: migrated.themePreference,
+    fontSizePreference: migrated.fontSizePreference,
     profile: migrated.profile,
     goals: migrated.goals,
     workouts: migrated.workouts,
@@ -490,6 +492,14 @@ function parseThemePreference(value: string): ThemePreference {
   }
 
   throw new GoogleSheetsSyncError('The Google Sheets summary contains an invalid theme preference.')
+}
+
+function parseFontSizePreference(value: string): FontSizePreference {
+  if (value === 'small' || value === 'normal' || value === 'large' || value === 'extra-large') {
+    return value
+  }
+
+  return 'normal'
 }
 
 function parsePrimaryGoal(value: string): PrimaryGoal {
@@ -893,6 +903,9 @@ function parseTabularSnapshot(
     themePreference: parseThemePreference(
       getLookupValue(lookup, 'Appearance', 'Theme Preference', { required: true }),
     ),
+    fontSizePreference: parseFontSizePreference(
+      getLookupValue(lookup, 'Appearance', 'Font Size'),
+    ),
     profile: parseProfile(lookup),
     goals: parseGoals(valuesBySheet.get(syncSheets.goals)),
     workouts: attachExercisesToWorkouts(
@@ -936,6 +949,7 @@ function createSummaryRows(snapshot: RemoteSnapshot): string[][] {
     ['Sync', 'Format', TABULAR_SHEET_MARKER],
     ['Sync', 'Version', String(snapshot.version)],
     ['Appearance', 'Theme Preference', snapshot.themePreference],
+    ['Appearance', 'Font Size', snapshot.fontSizePreference],
     ['Profile', 'Name', snapshot.profile.name],
     ['Profile', 'Fitness Level', snapshot.profile.fitnessLevel],
     ['Profile', 'Primary Goal', snapshot.profile.primaryGoal],

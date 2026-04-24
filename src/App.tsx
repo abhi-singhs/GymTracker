@@ -60,6 +60,7 @@ import {
   remoteSnapshotFingerprint,
 } from './lib/storage'
 import type {
+  FontSizePreference,
   Goal,
   LoggedExercise,
   LoggedSet,
@@ -140,6 +141,10 @@ function App() {
     document.documentElement.dataset.theme = resolvedTheme
     document.documentElement.style.colorScheme = resolvedTheme
   }, [resolvedTheme])
+
+  useEffect(() => {
+    document.documentElement.dataset.fontSize = state?.fontSizePreference ?? 'normal'
+  }, [state?.fontSizePreference])
 
   const updateState = useCallback(
     (
@@ -293,6 +298,16 @@ function App() {
       updateState((current) => ({
         ...current,
         themePreference,
+      }))
+    },
+    [updateState],
+  )
+
+  const updateFontSize = useCallback(
+    (fontSizePreference: FontSizePreference) => {
+      updateState((current) => ({
+        ...current,
+        fontSizePreference,
       }))
     },
     [updateState],
@@ -1302,6 +1317,7 @@ function App() {
           oauthOrigin={oauthOrigin}
           oauthRedirectUri={oauthRedirectUri}
           updateTheme={updateTheme}
+          updateFontSize={updateFontSize}
           updateProfileField={updateProfileField}
           toggleTrainingDay={toggleTrainingDay}
           regeneratePlan={regeneratePlan}

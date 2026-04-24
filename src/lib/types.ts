@@ -2,6 +2,8 @@ export const APP_VERSION = 4
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+export type FontSizePreference = 'small' | 'normal' | 'large' | 'extra-large'
+
 export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced'
 
 export type PrimaryGoal = 'strength' | 'body-composition' | 'endurance' | 'consistency'
@@ -117,6 +119,7 @@ export interface RemoteSnapshot {
   version: number
   exportedAt: string
   themePreference: ThemePreference
+  fontSizePreference: FontSizePreference
   profile: Profile
   goals: Goal[]
   workouts: WorkoutSession[]
@@ -153,6 +156,7 @@ export interface AppMetadata {
 export interface PersistedAppState {
   version: number
   themePreference: ThemePreference
+  fontSizePreference: FontSizePreference
   profile: Profile
   goals: Goal[]
   workouts: WorkoutSession[]
