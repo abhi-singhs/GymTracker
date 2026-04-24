@@ -42,6 +42,17 @@ GymTracker includes a GitHub Actions workflow at `.github/workflows/deploy-pages
 
 The Vite base path is derived automatically during GitHub Actions builds so project Pages deployments load assets, the manifest, and the service worker from the correct repository subpath.
 
+### Google OAuth in production builds
+
+To bake the Google OAuth credentials into the deployed build so they work on all devices without manual entry, add the following **repository secrets** in GitHub (**Settings → Secrets and variables → Actions**):
+
+| Secret name               | Value                                             |
+| ------------------------- | ------------------------------------------------- |
+| `VITE_GOOGLE_CLIENT_ID`     | Your Google OAuth Web client ID                   |
+| `VITE_GOOGLE_CLIENT_SECRET` | Your Google OAuth Web client secret (if required) |
+
+The deploy workflow reads these secrets at build time. Without them the production build ships without OAuth credentials and every device must enter them manually in the Advanced setup panel.
+
 ## Google Sheets sync setup
 
 GymTracker sync is intentionally simple: it writes a JSON snapshot into a dedicated Google Sheets tab that **you own**.

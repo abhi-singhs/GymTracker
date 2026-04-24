@@ -907,9 +907,15 @@ function App() {
     }
 
     if (callback.error) {
-      const message = `Google authorization failed: ${callback.error}${
+      let message = `Google authorization failed: ${callback.error}${
         callback.errorDescription ? ` ${callback.errorDescription}` : ''
       }`
+
+      if (callback.error === 'invalid_client') {
+        message +=
+          ' — Check that the Google OAuth client ID in Advanced setup matches the one in Google Cloud Console.'
+      }
+
       setAuthorizationError(message)
       return
     }
