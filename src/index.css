@@ -38,6 +38,18 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-font-size='small'] {
+  font-size: 14px;
+}
+
+:root[data-font-size='large'] {
+  font-size: 18px;
+}
+
+:root[data-font-size='extra-large'] {
+  font-size: 20px;
+}
+
 :root[data-theme='dark'] {
   --canvas: oklch(18% 0.018 46);
   --canvas-2: oklch(23% 0.022 46);
@@ -688,6 +700,8 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 1.4rem;
   background: linear-gradient(180deg, var(--surface), color-mix(in oklch, var(--surface-strong) 62%, var(--surface)));
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .goal-topline,
@@ -1511,6 +1525,7 @@ h3 {
 .sync-aside {
   display: grid;
   gap: 0.95rem;
+  min-width: 0;
 }
 
 .sync-meta {

@@ -1,6 +1,7 @@
 import {
   EQUIPMENT_OPTIONS,
   FITNESS_LEVEL_OPTIONS,
+  FONT_SIZE_OPTIONS,
   PRIMARY_GOAL_OPTIONS,
   RECOVERY_OPTIONS,
   THEME_OPTIONS,
@@ -12,6 +13,7 @@ import type {
   PersistedAppState,
   Profile,
   SyncSettings as AppSyncSettings,
+  FontSizePreference,
   ThemePreference,
 } from '../../lib/types'
 import { SectionHeader } from '../SectionHeader'
@@ -31,6 +33,7 @@ interface SettingsPageProps {
   oauthOrigin: string
   oauthRedirectUri: string
   updateTheme: (themePreference: ThemePreference) => void
+  updateFontSize: (fontSizePreference: FontSizePreference) => void
   updateProfileField: UpdateProfileField
   toggleTrainingDay: (day: string) => void
   regeneratePlan: () => void
@@ -48,7 +51,9 @@ interface SettingsPageProps {
 
 interface AppearanceSettingsProps {
   themePreference: ThemePreference
+  fontSizePreference: FontSizePreference
   updateTheme: (themePreference: ThemePreference) => void
+  updateFontSize: (fontSizePreference: FontSizePreference) => void
 }
 
 interface ProfileSettingsProps {
@@ -85,7 +90,7 @@ interface DeviceSettingsProps {
   resetLocalData: () => Promise<void>
 }
 
-function AppearanceSettings({ themePreference, updateTheme }: AppearanceSettingsProps) {
+function AppearanceSettings({ themePreference, fontSizePreference, updateTheme, updateFontSize }: AppearanceSettingsProps) {
   return (
     <div className="settings-block settings-block--appearance">
       <div className="settings-block-header">
@@ -101,6 +106,23 @@ function AppearanceSettings({ themePreference, updateTheme }: AppearanceSettings
             className={option.value === themePreference ? 'is-active' : ''}
             type="button"
             onClick={() => updateTheme(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="settings-block-header">
+        <p className="field-label">Text size</p>
+      </div>
+
+      <div className="theme-switch theme-switch--settings" role="group" aria-label="Text size preference">
+        {FONT_SIZE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            className={option.value === fontSizePreference ? 'is-active' : ''}
+            type="button"
+            onClick={() => updateFontSize(option.value)}
           >
             {option.label}
           </button>
@@ -570,6 +592,7 @@ export function SettingsPage({
   oauthOrigin,
   oauthRedirectUri,
   updateTheme,
+  updateFontSize,
   updateProfileField,
   toggleTrainingDay,
   regeneratePlan,
@@ -600,7 +623,9 @@ export function SettingsPage({
       <div className="settings-stack">
         <AppearanceSettings
           themePreference={state.themePreference}
+          fontSizePreference={state.fontSizePreference}
           updateTheme={updateTheme}
+          updateFontSize={updateFontSize}
         />
         <ProfileSettings
           profile={state.profile}

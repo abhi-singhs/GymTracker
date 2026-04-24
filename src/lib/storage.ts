@@ -3,6 +3,7 @@ import { createInitialState } from './defaults'
 import { buildGoogleSheetUrl, parseGoogleSheetUrl } from './googleSheetsSetup'
 import { generateWorkoutPlan, getPlanFingerprint } from './recommendations'
 import type {
+  FontSizePreference,
   Goal,
   LoggedExercise,
   LoggedSet,
@@ -194,9 +195,14 @@ function isThemePreference(value: unknown): value is ThemePreference {
   return value === 'light' || value === 'dark' || value === 'system'
 }
 
+function isFontSizePreference(value: unknown): value is FontSizePreference {
+  return value === 'small' || value === 'normal' || value === 'large' || value === 'extra-large'
+}
+
 interface NormalizedSnapshotPayload {
   version: number
   themePreference: ThemePreference
+  fontSizePreference: FontSizePreference
   profile: Profile
   goals: Goal[]
   workouts: WorkoutSession[]
@@ -219,6 +225,9 @@ function normalizeSnapshotPayload(
     themePreference: isThemePreference(record.themePreference)
       ? record.themePreference
       : seed.themePreference,
+    fontSizePreference: isFontSizePreference(record.fontSizePreference)
+      ? record.fontSizePreference
+      : seed.fontSizePreference,
     profile,
     goals,
     workouts,
@@ -246,6 +255,7 @@ function asConflict(record: unknown, seed: PersistedAppState): SyncConflict | nu
       version: remote.version,
       exportedAt,
       themePreference: remote.themePreference,
+      fontSizePreference: remote.fontSizePreference,
       profile: remote.profile,
       goals: remote.goals,
       workouts: remote.workouts,
@@ -340,6 +350,7 @@ export function createRemoteSnapshot(state: PersistedAppState): RemoteSnapshot {
     version: APP_VERSION,
     exportedAt: new Date().toISOString(),
     themePreference: state.themePreference,
+    fontSizePreference: state.fontSizePreference,
     profile: state.profile,
     goals: state.goals,
     workouts: state.workouts,
@@ -352,6 +363,7 @@ export function remoteSnapshotFingerprint(snapshot: RemoteSnapshot) {
   return snapshotFingerprint({
     version: snapshot.version,
     themePreference: snapshot.themePreference,
+    fontSizePreference: snapshot.fontSizePreference,
     profile: snapshot.profile,
     goals: snapshot.goals,
     workouts: snapshot.workouts,
@@ -368,6 +380,7 @@ export function applyRemoteSnapshot(
     ...currentState,
       version: snapshot.version,
       themePreference: snapshot.themePreference,
+      fontSizePreference: snapshot.fontSizePreference,
       profile: snapshot.profile,
       goals: snapshot.goals,
       workouts: snapshot.workouts,
